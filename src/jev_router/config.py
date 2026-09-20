@@ -40,7 +40,7 @@ class Settings(BaseSettings):
             return None
         return (usage.input_tokens * input_price + usage.output_tokens * output_price) / 1_000_000
 
-    def report_config(self) -> dict[str, str | float | int | None]:
+    def report_config(self) -> dict[str, bool | str | float | int | None]:
         fields = (
             "jev_model",
             "baseline_model",
@@ -51,6 +51,7 @@ class Settings(BaseSettings):
             "jev_high_consequence_threshold",
             "jev_routing_timeout_ms",
             "baseline_routing_timeout_ms",
+            "diagnostic_stage_two",
             "jev_input_price_per_million",
             "jev_output_price_per_million",
             "baseline_input_price_per_million",

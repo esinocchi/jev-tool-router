@@ -34,4 +34,4 @@ The 86-case result suggests that **specialist routing could be valuable closer t
 
 The limits matter: these were one-off, synthetic runs with four tools per domain, no real tool execution, and prices configured for estimates rather than taken from invoices. Jev's and Luna's confidence measures are not calibrated against each other. Ten tasks do not establish accuracy parity, and neither run proves statistical significance. The next useful test is a larger catalog with realistic, held-out agent tasks, a multi-tool shortlist, and a comparison against native tool search.
 
-The [experiment guide](../experiments/README.md) has the datasets, reports, configuration, and reproduction commands. The published reports omit complete requests and model answers; the datasets contain the synthetic requests and labels.
+The [experiment guide](../experiments/README.md) has the datasets, reports, configuration, and commands for new runs. The current routing harness differs from the dated run, so it cannot replay that report exactly. The published reports omit complete requests and model answers; the datasets contain the synthetic requests and labels.

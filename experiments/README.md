@@ -1,12 +1,15 @@
 # Routing experiments
 
-This directory preserves the original Jev-versus-OpenRouter experiment and mock CLI. It is separate from the public [Jev Tool Router SDK](../README.md). Run the commands below from the repository root. The experiment's Python modules live under `src/jev_router/lab/`; the dataset lives here. The original [implementation plan](implementation-plan.md) and [baseline diagnostics](baseline-diagnostics.md) are archived alongside it.
+This is the evidence and rerun guide for [the case study](../docs/case-study.md). The [public SDK](../README.md#use-the-experimental-python-sdk) is separate from the benchmark harness in `src/jev_router/lab/`. Run all commands from the repository root.
 
-A local experiment with two distinct tests. The [86-case routing run](published/routing-2026-09-20.json) asks Jev or a Luna-based LLM router to make the domain/tool decision **without an agent making a later tool call**. The [paired agent run](published/agent-bench-2026-09-20.json) tests the pattern available with ordinary tool APIs: Jev filters the offered tools, but Luna still decides the final call and its arguments. A readable [case study](../docs/case-study.md) keeps these results separate. Unit tests validate the harness, not either model's semantic accuracy.
+| Test | What it measures | What it does not measure | Source material |
+| --- | --- | --- | --- |
+| [86-case routing evaluation](#evaluation) | Whether Jev or a Luna-based router chooses the labeled domain and tool, plus policy outcomes, latency, and estimated cost. | A later agent tool call or full task completion. | [Cases](routing_cases.json) · [Published report](published/routing-2026-09-20.json) |
+| [10-task agent benchmark](#agent-task-benchmark) | A Luna mock agent with all 16 tools versus the same agent after Jev filters its offered tools. | Real tool execution or provider-native tool search. | [Tasks](agent_tasks.json) · [Published report](published/agent-bench-2026-09-20.json) |
 
-There are 16 mock tools across GitHub, browser, local files, and calendar. Nothing connects to those services, reads your files, opens websites, or changes a calendar. Routing commands send the request and supplied context to the selected model API when configured; those calls may incur charges. The executor only returns a typed description of a hypothetical invocation.
+Both reports are dated, single runs. Read them without credentials, then use the commands below if you want to create a new run. The published routing report uses schema version 2; the current harness uses version 3 and catalog-derived domain descriptions. Its ordinary policy also stops before exact-tool selection on high clarification, while the published report contains stage-two selections in those cases. Use `--diagnostic-stage-two` for comparable tool-fit coverage, but do not expect an exact replay of the old prompt/protocol. New results also vary with model version, network conditions, provider behavior, and configuration. Do not overwrite the published reports. Unit tests check the harness, not model accuracy.
 
-For use inside an agent, start with the [SDK quickstart](../README.md).
+The 16 mock tools cover GitHub, browser, local files, and calendar. They do not connect to those services, read user files, open websites, or change a calendar. Routing and agent-benchmark commands call model APIs when configured and can incur charges. The mock executor returns only a typed description of a hypothetical invocation. The original [implementation plan](implementation-plan.md) and [baseline diagnostics](baseline-diagnostics.md) remain as historical notes.
 
 ## Installation
 
@@ -14,7 +17,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/getting-started/install
 
 ```bash
 uv sync --locked --extra lab
-cp .env.example .env
+cp -n .env.example .env
 ```
 
 Edit `.env` locally. It is ignored by `.gitignore`; never put credentials in a dataset, command argument, report, or commit. `uv.lock` fixes the resolved environment; `pyproject.toml` bounds dependency versions. The tested SDK versions are `typesafe-sdk==0.6.0` and `openai==2.54.0`.
@@ -129,16 +132,20 @@ Every mutating catalog tool always requires `approved=True`, independently of th
 The published [September 20, 2026 routing run](published/routing-2026-09-20.json) matches the current dataset SHA-256 and used `openai/gpt-5.6-luna` as the two-stage LLM-router baseline. Jev selected a suitable domain and tool in 64/68 tool-fit cases versus Luna's 65/68, at 508 ms versus 2,579 ms mean routing latency. Estimated total cost was $0.00365 versus $0.02920 at the configured prices. In all 55 cases labeled ready to route, both standalone routers selected an acceptable tool. Jev then returned `clarify` on 24 and `fallback` on one low-confidence case, leaving 30/55 correct ready-to-use routes; Luna returned `clarify` on 20, leaving 35/55. This supports the idea that specialized routing can be fast and inexpensive **when routing is the job being measured**. It does not show that an agent becomes faster after adding Jev before its own tool-selection step, or that the differences are statistically significant. The baseline's self-reported confidence is not calibrated against Jev's distribution-derived confidence. Both provider calls are included in routing latency.
 
 ```bash
-# Jev plus baseline if baseline credentials/model are configured
+# Current policy: high clarification stops before exact-tool selection
 uv run jev-router eval
-# Explicit selection
+# Collect exact-tool diagnostics after clarification, as in the published report
+uv run jev-router eval --routers both --diagnostic-stage-two
+# Jev-only current-policy run and machine-readable diagnostic output
 uv run jev-router eval --routers jev
-uv run jev-router eval --routers both --json
+uv run jev-router eval --routers both --diagnostic-stage-two --json
 # Alternative dataset or report directory
 uv run jev-router eval --dataset experiments/routing_cases.json --output-dir experiments/results
 ```
 
-Reports use UTC timestamps under `experiments/results/`. Schema version 3 records catalog-derived domain descriptions as `catalog_derived_domains_v1` and retains the baseline output format marker `closed_probability_object_v2`, so earlier runs remain distinguishable. Each includes dataset SHA-256, nonsecret threshold/model/price configuration, actual response model versions, per-case decisions, and aggregate metrics. Requests are represented by case IDs and hashes, not their full text. Reports are ignored by git. Evaluation **never calls the mock executor**. With absent credentials, it produces fallback records, useful for checking the CLI but not for benchmarking models.
+`--diagnostic-stage-two` still returns `clarify` when the clarification threshold is exceeded; it makes a second model call solely to record the exact-tool candidate and probabilities. This can change latency, token totals, and cost. Without the flag, low tool-fit coverage may reflect unasked stage-two questions rather than poor selection. Compare new runs under the same flag and configuration; neither mode exactly reproduces the published schema-2 prompts.
+
+Reports use UTC timestamps under `experiments/results/`. Schema version 3 records catalog-derived domain descriptions as `catalog_derived_domains_v1` and retains the baseline output format marker `closed_probability_object_v2`, so earlier runs remain distinguishable. Reports written by the current harness include dataset SHA-256, nonsecret threshold/model/price configuration, the diagnostic-stage-two setting, actual response model versions, per-case decisions, and aggregate metrics. Requests are represented by case IDs and hashes, not their full text. Reports are ignored by git. Evaluation **never calls the mock executor**. With absent credentials, it produces fallback records, useful for checking the CLI but not for benchmarking models.
 
 Metric definitions:
 

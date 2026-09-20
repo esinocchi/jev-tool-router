@@ -305,7 +305,7 @@ class EvaluationReport(Model):
     domain_option_schema: str = "catalog_derived_domains_v1"
     created_at: str
     dataset_sha256: str
-    settings: dict[str, str | float | int | None]
+    settings: dict[str, bool | str | float | int | None]
     routers: dict[str, RouterReport]
     notes: str = (
         "Sequential routing; router order alternates each case; no warmup. No tools executed. "

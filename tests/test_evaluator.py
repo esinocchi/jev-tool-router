@@ -117,3 +117,15 @@ async def test_evaluation_never_executes_tools(monkeypatch):
     assert report.routers["jev"].metrics.exact_tool_accuracy == 1
     assert not execute.called
     assert "Example request" not in report.model_dump_json()
+
+
+async def test_evaluation_report_records_diagnostic_stage_two_mode():
+    row = record("a", "files_read", "files_read")
+
+    class Router:
+        async def route(self, request):
+            return row.decision
+
+    settings = Settings(_env_file=None, diagnostic_stage_two=True)
+    report = await evaluate([row.case], {"jev": Router()}, settings, "hash")
+    assert json.loads(report.model_dump_json())["settings"]["diagnostic_stage_two"] is True
