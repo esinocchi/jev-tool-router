@@ -10,9 +10,10 @@ from pydantic import Field, TypeAdapter, model_validator
 
 from jev_router.config import Settings
 from jev_router.interfaces import Router
-from jev_router.logging import log_decision, request_hash
+from jev_router.lab.logging import log_decision, request_hash
+from jev_router.lab.tool_catalog import CATALOG
 from jev_router.models import Domain, Model, Outcome, RoutingDecision, RoutingRequest
-from jev_router.tool_catalog import CATALOG, tool_requires_approval
+from jev_router.tools import tool_requires_approval
 
 
 class EvaluationCase(Model):
@@ -38,7 +39,7 @@ class EvaluationCase(Model):
                 raise ValueError("Expected tool is not in expected domain")
             if (
                 self.expected_outcome == "route"
-                and tool_requires_approval(name)
+                and tool_requires_approval(name, CATALOG)
                 and not self.requires_approval
             ):
                 raise ValueError("Case contradicts catalog approval policy")
@@ -212,7 +213,7 @@ def calculate_metrics(records: list[EvaluationRecord], settings: Settings) -> Me
             r.case.requires_approval
             or (
                 r.decision.selected_tool in CATALOG
-                and tool_requires_approval(r.decision.selected_tool or "")
+                and tool_requires_approval(r.decision.selected_tool or "", CATALOG)
             )
         )
         for r in records
@@ -299,8 +300,9 @@ class RouterReport(Model):
 
 
 class EvaluationReport(Model):
-    schema_version: int = 2
+    schema_version: int = 3
     baseline_output_schema: str = "closed_probability_object_v2"
+    domain_option_schema: str = "catalog_derived_domains_v1"
     created_at: str
     dataset_sha256: str
     settings: dict[str, str | float | int | None]

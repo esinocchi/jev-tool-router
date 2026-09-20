@@ -1,0 +1,75 @@
+[
+  {
+    "id": "agent_001",
+    "request": "Search GitHub issues in acme/auth for 'Authentication token expires early' and tell me the open issue number.",
+    "expected_tools": ["github_search_issues"],
+    "required_facts": ["42"],
+    "mock_results": {"github_search_issues": "Open issue #42: Authentication token expires early."}
+  },
+  {
+    "id": "agent_002",
+    "request": "Read README.md in the acme/auth GitHub repository and tell me its setup command.",
+    "expected_tools": ["github_read_file"],
+    "required_facts": ["uv sync"],
+    "mock_results": {"github_read_file": "README.md setup command: uv sync."}
+  },
+  {
+    "id": "agent_003",
+    "request": "Search the public web for the ISBN of 'The Example Book' by Ada Example and report it.",
+    "expected_tools": ["browser_search_web"],
+    "required_facts": ["978-1-4028-9462-6"],
+    "mock_results": {"browser_search_web": "Example book listing: ISBN 978-1-4028-9462-6."}
+  },
+  {
+    "id": "agent_004",
+    "request": "Open https://example.test/release-notes and tell me the version on that page.",
+    "expected_tools": ["browser_open_page"],
+    "required_facts": ["3.1"],
+    "mock_results": {"browser_open_page": "Release notes page: version 3.1 is now available."}
+  },
+  {
+    "id": "agent_005",
+    "request": "Search my local files for the Q3 report and give me its filename.",
+    "expected_tools": ["files_search"],
+    "required_facts": ["report-q3.txt"],
+    "mock_results": {"files_search": "Found local file /workspace/reports/report-q3.txt."}
+  },
+  {
+    "id": "agent_006",
+    "request": "Read /workspace/notes.txt and tell me the budget written there.",
+    "expected_tools": ["files_read"],
+    "required_facts": ["$120"],
+    "mock_results": {"files_read": "The budget in notes.txt is $120."}
+  },
+  {
+    "id": "agent_007",
+    "request": "Search my calendar for Basketball practice on September 21, 2026 and tell me its start time.",
+    "expected_tools": ["calendar_search_events"],
+    "required_facts": ["6:30"],
+    "mock_results": {"calendar_search_events": "Basketball practice is tomorrow at 6:30 PM."}
+  },
+  {
+    "id": "agent_008",
+    "request": "Check my calendar availability Friday from 2 to 4 PM and tell me if I am free.",
+    "expected_tools": ["calendar_check_availability"],
+    "required_facts": ["free"],
+    "mock_results": {"calendar_check_availability": "Friday from 2 to 4 PM is free."}
+  },
+  {
+    "id": "agent_009",
+    "request": "What is 2 + 2?",
+    "expected_tools": [],
+    "required_facts": ["4"],
+    "mock_results": {}
+  },
+  {
+    "id": "agent_010",
+    "request": "Search acme/auth GitHub issues for 'Authentication token expires early' and read README.md in acme/auth. Give me the open issue number and the README setup command.",
+    "expected_tools": ["github_search_issues", "github_read_file"],
+    "required_facts": ["42", "uv sync"],
+    "mock_results": {
+      "github_search_issues": "Open issue #42: Authentication token expires early.",
+      "github_read_file": "README.md setup command: uv sync."
+    }
+  }
+]

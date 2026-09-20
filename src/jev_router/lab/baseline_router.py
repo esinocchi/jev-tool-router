@@ -7,6 +7,8 @@ from openai import APIConnectionError, APIError, APIStatusError, APITimeoutError
 
 from jev_router.config import Settings
 from jev_router.errors import RoutingFailure
+from jev_router.lab.tool_catalog import CATALOG
+from jev_router.lab.tool_preparation import prepare_tool_call
 from jev_router.models import (
     ChoiceJudgment,
     DomainJudgment,
@@ -17,9 +19,9 @@ from jev_router.models import (
 )
 from jev_router.questions import (
     DOMAIN_INSTRUCTIONS,
-    DOMAIN_OPTIONS,
     SIGNAL_INSTRUCTIONS,
     TOOL_INSTRUCTIONS,
+    domain_options,
     tool_options,
 )
 from jev_router.routing_service import HierarchicalRouter
@@ -201,7 +203,7 @@ class BaselineProvider:
         output = await self._call(
             request,
             DOMAIN_INSTRUCTIONS,
-            DOMAIN_OPTIONS,
+            domain_options(CATALOG),
             SIGNAL_INSTRUCTIONS,
             BaselineDomainOutput,
             usage,
@@ -217,7 +219,7 @@ class BaselineProvider:
         self, request: RoutingRequest, domain: str, usage: TokenUsage
     ) -> ChoiceJudgment:
         output = await self._call(
-            request, TOOL_INSTRUCTIONS, tool_options(domain), {}, BaselineToolOutput, usage
+            request, TOOL_INSTRUCTIONS, tool_options(domain, CATALOG), {}, BaselineToolOutput, usage
         )
         return output.judgment()
 
@@ -230,7 +232,9 @@ class BaselineRouter(HierarchicalRouter):
     provider: BaselineProvider
 
     def __init__(self, settings: Settings, client: AsyncOpenAI | None = None):
-        super().__init__(BaselineProvider(settings, client), settings)
+        super().__init__(
+            BaselineProvider(settings, client), settings, CATALOG, prepare_call=prepare_tool_call
+        )
 
     async def aclose(self) -> None:
         await self.provider.aclose()

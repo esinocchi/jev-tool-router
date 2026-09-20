@@ -1,19 +1,21 @@
 """Two-stage orchestration and deterministic safety policy."""
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from time import perf_counter
-from typing import cast
 
 from pydantic import ValidationError
 
 from jev_router.config import Settings
 from jev_router.errors import RoutingFailure, validation_reason
 from jev_router.interfaces import JudgmentProvider
-from jev_router.models import Domain, RoutingDecision, RoutingRequest
-from jev_router.questions import DOMAIN_OPTIONS, tool_options
-from jev_router.tool_catalog import CATALOG, ToolDefinition, tool_requires_approval
-from jev_router.tool_preparation import prepare_tool_call
+from jev_router.models import RoutingDecision, RoutingRequest, ToolCallPreparation
+from jev_router.questions import domain_options, tool_options
+from jev_router.tools import ToolDefinition, tool_requires_approval
+
+PrepareCall = Callable[
+    [RoutingDecision, RoutingRequest, Mapping[str, ToolDefinition]], ToolCallPreparation
+]
 
 
 class HierarchicalRouter:
@@ -21,11 +23,14 @@ class HierarchicalRouter:
         self,
         provider: JudgmentProvider,
         settings: Settings,
-        catalog: Mapping[str, ToolDefinition] = CATALOG,
+        catalog: Mapping[str, ToolDefinition],
+        *,
+        prepare_call: PrepareCall | None = None,
     ):
         self.provider = provider
         self.settings = settings
         self.catalog = catalog
+        self.prepare_call = prepare_call
 
     async def route(self, request: RoutingRequest) -> RoutingDecision:
         started = perf_counter()
@@ -74,8 +79,8 @@ class HierarchicalRouter:
     async def _stages(self, request: RoutingRequest, decision: RoutingDecision) -> None:
         s = self.settings
         judgment = await self.provider.judge_domain(request, decision.usage)
-        judgment.choice.check_options(DOMAIN_OPTIONS)
-        decision.selected_domain = cast(Domain, judgment.choice.selected)
+        judgment.choice.check_options(domain_options(self.catalog))
+        decision.selected_domain = judgment.choice.selected
         decision.domain_probabilities = judgment.choice.probabilities
         decision.domain_confidence = judgment.choice.confidence
         decision.needs_clarification_probability = judgment.needs_clarification
@@ -112,10 +117,11 @@ class HierarchicalRouter:
             decision.fallback_reason = "no_matching_tool"
         else:
             decision.outcome = "route"
-            decision.tool_call = prepare_tool_call(decision, request, self.catalog)
-            if decision.tool_call.status == "needs_clarification":
-                decision.outcome = "clarify"
-                decision.clarification_reason = "missing_required_argument"
+            if self.prepare_call is not None:
+                decision.tool_call = self.prepare_call(decision, request, self.catalog)
+                if decision.tool_call.status == "needs_clarification":
+                    decision.outcome = "clarify"
+                    decision.clarification_reason = "missing_required_argument"
         if early_clarification:
             decision.outcome = "clarify"
             decision.fallback_reason = None

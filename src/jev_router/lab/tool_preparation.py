@@ -3,8 +3,9 @@
 import re
 from collections.abc import Mapping
 
+from jev_router.lab.tool_catalog import CATALOG
 from jev_router.models import RoutingDecision, RoutingRequest, ToolCallPreparation
-from jev_router.tool_catalog import CATALOG, ToolDefinition
+from jev_router.tools import ToolDefinition
 
 URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 PATH = re.compile(r"(?<!\w)(/[A-Za-z0-9._/-]+)")

@@ -1,21 +1,28 @@
 [project]
 name = "jev-tool-router"
 version = "0.1.0"
-description = "Typed, Jev-first routing middleware for application-owned agent tools"
+description = "Experimental typed Jev tool routing for application-owned agent tools"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
   "typesafe-sdk>=0.6,<0.7",
-  "openai>=2.0,<3",
   "pydantic>=2.11,<3",
   "pydantic-settings>=2.10,<3",
-  "typer>=0.16,<1",
 ]
 
+[project.optional-dependencies]
+lab = ["openai>=2.0,<3", "typer>=0.16,<1"]
+
+[project.urls]
+Repository = "https://github.com/esinocchi/jev-tool-router"
+Issues = "https://github.com/esinocchi/jev-tool-router/issues"
+
 [dependency-groups]
-dev = ["pytest>=8.4,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.17,<2"]
+dev = ["pytest>=8.4,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.17,<2", "openai>=2.0,<3", "typer>=0.16,<1"]
 
 [project.scripts]
-jev-router = "jev_router.cli:app"
+jev-router = "jev_router.lab.entry:main"
 
 [build-system]
 requires = ["hatchling>=1.27,<2"]

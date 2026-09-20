@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from jev_router.baseline_router import BaselineToolOutput
 from jev_router.config import Settings
+from jev_router.lab.baseline_router import BaselineToolOutput
 from jev_router.models import ChoiceJudgment, TokenUsage
 
 

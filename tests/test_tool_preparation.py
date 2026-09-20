@@ -1,8 +1,8 @@
 import pytest
 
+from jev_router.lab.tool_catalog import execute_mock
+from jev_router.lab.tool_preparation import prepare_tool_call
 from jev_router.models import RoutingDecision, RoutingRequest
-from jev_router.tool_catalog import execute_mock
-from jev_router.tool_preparation import prepare_tool_call
 
 
 def routed(tool: str, domain: str) -> RoutingDecision:

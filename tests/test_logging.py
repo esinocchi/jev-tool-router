@@ -5,7 +5,7 @@ import logging
 from pydantic import SecretStr
 
 from jev_router.config import Settings
-from jev_router.logging import configure_logging, log_decision
+from jev_router.lab.logging import configure_logging, log_decision
 from jev_router.models import RoutingDecision, RoutingRequest
 
 

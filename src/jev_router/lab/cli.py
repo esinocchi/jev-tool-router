@@ -1,23 +1,34 @@
 """Typer CLI. Route calls models; execution is always an inert local simulation."""
 
 import asyncio
+import hashlib
 import json
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
+from openai import AsyncOpenAI
 from pydantic import ValidationError
 
-from jev_router.baseline_router import BaselineRouter
 from jev_router.config import Settings
-from jev_router.evaluator import dataset_hash, evaluate, load_cases, write_report
 from jev_router.interfaces import Router
 from jev_router.jev_router import JevRouter
-from jev_router.logging import configure_logging, log_decision
+from jev_router.lab.agent_benchmark import (
+    AgentBenchmarkReport,
+    OpenRouterAgent,
+    load_agent_tasks,
+    run_task,
+    summarize_records,
+)
+from jev_router.lab.baseline_router import BaselineRouter
+from jev_router.lab.evaluator import dataset_hash, evaluate, load_cases, write_report
+from jev_router.lab.logging import configure_logging, log_decision
+from jev_router.lab.tool_catalog import CATALOG, execute_mock
+from jev_router.lab.tool_preparation import prepare_tool_call
 from jev_router.models import MockResult, Model, RoutingDecision, RoutingRequest
-from jev_router.tool_catalog import execute_mock
-from jev_router.tool_preparation import prepare_tool_call
+from jev_router.public import JevToolRouter
 
 app = typer.Typer(
     no_args_is_help=True, help="Compare hierarchical tool routers. All tool execution is mocked."
@@ -101,7 +112,7 @@ def route(
     state = make_request(request, context)
 
     async def run() -> RouteResult:
-        router = JevRouter(settings)
+        router = JevRouter(settings, tools=list(CATALOG.values()), prepare_call=prepare_tool_call)
         try:
             decision = await router.route(state)
         finally:
@@ -145,7 +156,10 @@ def compare(
     state = make_request(request, context)
 
     async def run() -> Comparison:
-        jev, baseline = JevRouter(settings), BaselineRouter(settings)
+        jev, baseline = (
+            JevRouter(settings, tools=list(CATALOG.values()), prepare_call=prepare_tool_call),
+            BaselineRouter(settings),
+        )
         try:
             first = await jev.route(state)
             second = await baseline.route(state)
@@ -184,9 +198,9 @@ def compare(
 @app.command(name="eval")
 def evaluate_command(
     dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
-        "evals/routing_cases.json"
+        "experiments/routing_cases.json"
     ),
-    output_dir: Annotated[Path, typer.Option()] = Path("evals/results"),
+    output_dir: Annotated[Path, typer.Option()] = Path("experiments/results"),
     routers: Annotated[
         RouterSelection, typer.Option(help="auto includes baseline when configured")
     ] = RouterSelection.auto,
@@ -206,7 +220,10 @@ def evaluate_command(
         ) from None
 
     async def run() -> str:
-        jev, baseline = JevRouter(settings), BaselineRouter(settings)
+        jev, baseline = (
+            JevRouter(settings, tools=list(CATALOG.values()), prepare_call=prepare_tool_call),
+            BaselineRouter(settings),
+        )
         selected: dict[str, Router] = {}
         if routers != RouterSelection.baseline:
             selected["jev"] = jev
@@ -236,6 +253,111 @@ def evaluate_command(
         raise typer.BadParameter(
             "Could not write the evaluation report; check output-directory permissions"
         ) from None
+
+
+@app.command(name="agent-bench")
+def agent_benchmark_command(
+    live: Annotated[
+        bool, typer.Option(help="Explicitly enable paid Jev and OpenRouter calls")
+    ] = False,
+    dataset: Annotated[Path, typer.Option()] = Path("experiments/agent_tasks.json"),
+    limit: Annotated[int, typer.Option(min=1, help="Number of paired tasks to run")] = 10,
+    output_dir: Annotated[Path, typer.Option()] = Path("experiments/results"),
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Compare mock-agent task completion with all tools versus Jev-filtered tools."""
+    if not live:
+        raise typer.BadParameter("Pass --live to allow paid model calls")
+    settings = settings_from_environment()
+    if settings.typesafe_api_key is None or not settings.typesafe_api_key.get_secret_value():
+        raise typer.BadParameter("Set TYPESAFE_API_KEY for the Jev benchmark arm")
+    if settings.openrouter_api_key is None or not settings.openrouter_api_key.get_secret_value():
+        raise typer.BadParameter("Set OPENROUTER_API_KEY for the agent model")
+    if not settings.baseline_model:
+        raise typer.BadParameter("Set BASELINE_MODEL to a tool-capable OpenRouter model")
+    assert settings.openrouter_api_key is not None
+    openrouter_key = settings.openrouter_api_key.get_secret_value()
+    try:
+        tasks = load_agent_tasks(dataset)[:limit]
+    except (OSError, ValueError):
+        raise typer.BadParameter("Unable to read the agent benchmark dataset") from None
+
+    async def run() -> AgentBenchmarkReport:
+        client = AsyncOpenAI(
+            api_key=openrouter_key,
+            base_url="https://openrouter.ai/api/v1",
+            max_retries=0,
+            timeout=settings.baseline_routing_timeout_ms / 1000,
+        )
+        agent = OpenRouterAgent(client, settings.baseline_model)
+        records = []
+        try:
+            async with JevToolRouter(list(CATALOG.values()), settings) as router:
+
+                async def route_request(request: str, context: str) -> RoutingDecision:
+                    return await router.route(request, context=context)
+
+                for index, task in enumerate(tasks):
+                    arms: tuple[Literal["flat", "jev"], Literal["flat", "jev"]] = (
+                        ("jev", "flat") if index % 2 == 0 else ("flat", "jev")
+                    )
+                    for arm in arms:
+                        record = await run_task(
+                            task, arm, agent, route_request if arm == "jev" else None
+                        )
+                        records.append(record)
+                        status = "pass" if record.success else record.failure_reason
+                        typer.echo(
+                            f"{task.id} {arm}: {status}",
+                            err=True,
+                        )
+        finally:
+            await client.close()
+        summaries = {
+            arm: summarize_records(
+                [record for record in records if record.arm == arm],
+                input_price=settings.baseline_input_price_per_million,
+                output_price=settings.baseline_output_price_per_million,
+            )
+            for arm in ("flat", "jev")
+        }
+        return AgentBenchmarkReport(
+            model=settings.baseline_model,
+            tool_count=len(CATALOG),
+            dataset_sha256=hashlib.sha256(dataset.read_bytes()).hexdigest(),
+            settings=settings.report_config(),
+            summaries=summaries,
+            cases=records,
+        )
+
+    report = asyncio.run(run())
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = output_dir / f"agent-bench-{timestamp}.json"
+    path.write_text(report.model_dump_json(indent=2) + "\n")
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {"report_path": str(path.resolve()), "report": report.model_dump(mode="json")},
+                indent=2,
+            )
+        )
+    else:
+        typer.echo(f"Report: {path.resolve()}")
+        for arm, summary in report.summaries.items():
+            completed_latency = (
+                f"{summary.mean_success_latency_ms:.0f}"
+                if summary.mean_success_latency_ms is not None
+                else "n/a"
+            )
+            typer.echo(
+                f"{arm}: {summary.success_count}/{summary.task_count} tasks; "
+                f"mean completed-task latency {completed_latency} ms; "
+                f"{summary.total_input_tokens} input / "
+                f"{summary.total_output_tokens} output tokens; "
+                f"estimated cost {summary.estimated_cost_usd} USD; "
+                f"cost per completion {summary.cost_per_success_usd} USD"
+            )
 
 
 if __name__ == "__main__":

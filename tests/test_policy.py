@@ -1,6 +1,8 @@
 import pytest
 
 from jev_router.config import Settings
+from jev_router.lab.tool_catalog import CATALOG, execute_mock
+from jev_router.lab.tool_preparation import prepare_tool_call
 from jev_router.models import (
     ChoiceJudgment,
     DomainJudgment,
@@ -8,8 +10,12 @@ from jev_router.models import (
     RoutingRequest,
     ToolCallPreparation,
 )
-from jev_router.routing_service import HierarchicalRouter
-from jev_router.tool_catalog import CATALOG, execute_mock
+from jev_router.routing_service import HierarchicalRouter as CoreHierarchicalRouter
+
+
+class HierarchicalRouter(CoreHierarchicalRouter):
+    def __init__(self, provider, settings):
+        super().__init__(provider, settings, CATALOG, prepare_call=prepare_tool_call)
 
 
 def choice(label, options, confidence=0.95):
@@ -58,7 +64,7 @@ class Provider:
         from jev_router.questions import tool_options
 
         self.calls.append(domain)
-        return choice(self.tool, tool_options(domain), self.tc)
+        return choice(self.tool, tool_options(domain, CATALOG), self.tc)
 
 
 @pytest.mark.parametrize(

@@ -1,32 +1,17 @@
 """Trusted local catalog and inert execution. No service clients belong here."""
 
 import re
-from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Literal
-
-from pydantic import ConfigDict, JsonValue
 
 from jev_router.models import (
     MockArguments,
     MockResult,
-    Model,
     RoutingDecision,
     ToolCallPreparation,
     ToolDomain,
 )
-
-
-class ToolDefinition(Model):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    name: str
-    domain: ToolDomain
-    description: str
-    read_only: bool
-    risk: Literal["low", "medium", "high"]
-    required_arguments: tuple[str, ...]
-    input_schema: dict[str, JsonValue]
-    output_schema: dict[str, JsonValue]
+from jev_router.tools import ToolDefinition, tool_requires_approval
 
 
 def tool(
@@ -158,22 +143,8 @@ CATALOG = MappingProxyType({t.name: t for t in _TOOLS})
 if len(CATALOG) != len(_TOOLS):
     raise ValueError("Duplicate catalog name")
 
-ALWAYS_APPROVAL = frozenset(
-    {
-        "files_delete",
-        "github_create_issue",
-        "browser_submit_form",
-        "calendar_create_event",
-        "calendar_delete_event",
-    }
-)
 SAFE_URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 SAFE_PATH = re.compile(r"/[A-Za-z0-9._/-]+")
-
-
-def tool_requires_approval(name: str, catalog: Mapping[str, ToolDefinition] = CATALOG) -> bool:
-    definition = catalog[name]
-    return name in ALWAYS_APPROVAL or not definition.read_only or definition.risk == "high"
 
 
 def execute_mock(
@@ -199,7 +170,7 @@ def execute_mock(
     if "path" in prepared.arguments and not SAFE_PATH.fullmatch(prepared.arguments["path"]):
         raise ValueError("Prepared file path is invalid")
     if (
-        decision.requires_approval or tool_requires_approval(definition.name)
+        decision.requires_approval or tool_requires_approval(definition.name, CATALOG)
     ) and approved is not True:
         raise PermissionError("Explicit approved=True is required")
     return MockResult(

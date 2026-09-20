@@ -6,14 +6,24 @@ from pydantic import SecretStr
 from typesafe_sdk import Choice, ChoiceAnswer, Noul, NoulAnswer, SystemOneResponse, Usage
 
 from jev_router.config import Settings
-from jev_router.jev_router import JevRouter, domain_questions, tool_questions
+from jev_router.jev_router import JevRouter as CoreJevRouter
+from jev_router.jev_router import domain_questions, tool_questions
+from jev_router.lab.tool_catalog import CATALOG
+from jev_router.lab.tool_preparation import prepare_tool_call
 from jev_router.models import RoutingRequest
 from jev_router.questions import DOMAIN_OPTIONS, tool_options
 
 
+class JevRouter(CoreJevRouter):
+    def __init__(self, settings, client=None):
+        super().__init__(
+            settings, client=client, tools=list(CATALOG.values()), prepare_call=prepare_tool_call
+        )
+
+
 def response(domain="github", confidence=0.9, tool=None, tokens=10):
     selected = domain if tool is None else tool
-    options = DOMAIN_OPTIONS if tool is None else tool_options(domain)
+    options = DOMAIN_OPTIONS if tool is None else tool_options(domain, CATALOG)
     answers = {
         "tool_domain" if tool is None else "tool": ChoiceAnswer(
             choice=selected,
@@ -34,15 +44,15 @@ def response(domain="github", confidence=0.9, tool=None, tokens=10):
 
 
 def test_question_construction():
-    questions = domain_questions()
+    questions = domain_questions(CATALOG)
     assert isinstance(questions["tool_domain"], Choice)
     assert set(questions["tool_domain"].criteria) == set(DOMAIN_OPTIONS)
     for key in ("needs_clarification", "likely_mutation", "high_consequence"):
         assert isinstance(questions[key], Noul)
         assert "user_request" in questions[key].instructions
     for domain in ("github", "browser", "files", "calendar"):
-        q = tool_questions(domain)["tool"]
-        assert set(q.criteria) == set(tool_options(domain))
+        q = tool_questions(domain, CATALOG)["tool"]
+        assert set(q.criteria) == set(tool_options(domain, CATALOG))
         assert all(k.startswith(domain + "_") or k == "none_of_the_above" for k in q.criteria)
 
 

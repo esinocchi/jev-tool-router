@@ -7,9 +7,11 @@ import httpx2
 from openai import AsyncOpenAI
 from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy
 
-from jev_router.baseline_router import BaselineRouter
 from jev_router.config import Settings
 from jev_router.jev_router import JevRouter
+from jev_router.lab.baseline_router import BaselineRouter
+from jev_router.lab.tool_catalog import CATALOG
+from jev_router.lab.tool_preparation import prepare_tool_call
 from jev_router.models import RoutingRequest
 
 
@@ -53,9 +55,12 @@ async def test_typesafe_wire_contract_and_no_retry():
         retry=RetryPolicy(max_retries=0),
         transport=httpx2.MockTransport(handler),
     ) as client:
-        result = await JevRouter(Settings(_env_file=None), client).route(
-            RoutingRequest(user_request="Read /tmp/a.txt")
-        )
+        result = await JevRouter(
+            Settings(_env_file=None),
+            client,
+            tools=list(CATALOG.values()),
+            prepare_call=prepare_tool_call,
+        ).route(RoutingRequest(user_request="Read /tmp/a.txt"))
     assert result.outcome == "fallback"
     assert result.usage.input_tokens == 18
     assert not result.usage.complete

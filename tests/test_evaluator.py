@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from jev_router.config import Settings
-from jev_router.evaluator import (
+from jev_router.lab.evaluator import (
     EvaluationCase,
     EvaluationRecord,
     calculate_metrics,
@@ -91,14 +91,14 @@ def test_empty_metrics_and_unknown_cost():
 
 
 def test_dataset_has_unique_cases_and_truth_labels():
-    cases = load_cases(Path("evals/routing_cases.json"))
+    cases = load_cases(Path("experiments/routing_cases.json"))
     assert len(cases) >= 60
     assert len({case.id for case in cases}) == len(cases)
     assert len({case.request for case in cases}) == len(cases)
     assert {case.expected_outcome for case in cases} == {"route", "no_tool", "clarify", "fallback"}
     assert all(
         "expected_mutation" in row and "expected_high_consequence" in row
-        for row in json.loads(Path("evals/routing_cases.json").read_text())
+        for row in json.loads(Path("experiments/routing_cases.json").read_text())
     )
 
 
@@ -106,7 +106,7 @@ async def test_evaluation_never_executes_tools(monkeypatch):
     from unittest.mock import Mock
 
     execute = Mock(side_effect=AssertionError("must not execute"))
-    monkeypatch.setattr("jev_router.tool_catalog.execute_mock", execute)
+    monkeypatch.setattr("jev_router.lab.tool_catalog.execute_mock", execute)
     row = record("a", "files_delete", "files_delete", truth=True, approval=True)
 
     class Router:

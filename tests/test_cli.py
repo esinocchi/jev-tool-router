@@ -3,7 +3,7 @@ import json
 import pytest
 from typer.testing import CliRunner
 
-from jev_router.cli import app
+from jev_router.lab.cli import app
 
 runner = CliRunner()
 
@@ -40,7 +40,7 @@ def test_invalid_config_does_not_echo_value(monkeypatch):
 def test_eval_report_without_credentials(monkeypatch, tmp_path):
     from pathlib import Path
 
-    dataset = Path("evals/routing_cases.json").resolve()
+    dataset = Path("experiments/routing_cases.json").resolve()
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     result = runner.invoke(app, ["eval", "--dataset", str(dataset), "--routers", "jev", "--json"])
@@ -76,6 +76,22 @@ def test_oversized_eval_input_rejected_without_leaking_text(monkeypatch, tmp_pat
     assert "PRIVATE_EVALUATION_TEXT" not in str(result.exception)
 
 
+def test_agent_bench_requires_explicit_live_flag(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["agent-bench"])
+    assert result.exit_code != 0
+    assert "--live" in result.output
+
+
+def test_agent_bench_reports_missing_configuration_without_network(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    result = runner.invoke(app, ["agent-bench", "--live"])
+    assert result.exit_code != 0
+    assert "TYPESAFE_API_KEY" in result.output
+
+
 @pytest.mark.parametrize(
     "arguments,status",
     [([], "not_requested"), (["--execute"], "approval_required"), (["--approve"], "simulated")],
@@ -95,7 +111,7 @@ def test_cli_mock_execution_approval(monkeypatch, tmp_path, arguments, status):
             requires_approval=False,
         )
 
-    monkeypatch.setattr("jev_router.cli.JevRouter.route", fake_route)
+    monkeypatch.setattr("jev_router.lab.cli.JevRouter.route", fake_route)
     result = runner.invoke(app, ["route", "Delete /tmp/a", "--json", *arguments])
     assert result.exit_code == 0, result.output
     data = json.loads(result.stdout)

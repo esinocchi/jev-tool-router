@@ -1,256 +1,110 @@
-# jev-tool-router
+# Jev Tool Router
 
-A local experiment testing whether TypeSafe AI's Jev can route requests to relevant tools faster and more cheaply than a conventional LLM router served through OpenRouter, without reducing routing accuracy. **No benchmark result is claimed yet.** Unit tests validate the harness, not either model's semantic accuracy.
+**Experimental Python SDK and reproducible tool-routing research.** Give the router your agent's tool names and descriptions; it returns a typed `route`, `clarify`, `no_tool`, or `fallback` decision. TypeSafe AI's Jev makes the judgments. Your application remains responsible for arguments, authorization, and execution. This project has not demonstrated an overall performance benefit for a 16-tool agent and is not a production authorization layer.
 
-There are 16 mock tools across GitHub, browser, local files, and calendar. Nothing connects to those services, reads your files, opens websites, or changes a calendar. Routing commands send the request and supplied context to the selected model API when configured; those calls may incur charges. The executor only returns a typed description of a hypothetical invocation.
+```text
+Your request → Jev: choose a domain → Jev: choose one tool in that domain → typed decision
+```
 
-## Use it in an agent
+The SDK can be installed without the lab dependencies. The [experiment lab](experiments/README.md) contains an 86-case routing dataset, an OpenRouter comparison, a mock CLI, and a paired agent benchmark.
 
-`JevToolRouter` is the small, route-only API for an application that already owns its
-tools. Describe trusted tool metadata, give the router a request, and use its typed
-`RoutingDecision` to decide whether your application should clarify, continue, or
-apply its own authorization and execution logic. The router never imports an MCP
-client, calls a tool, or turns a model signal into approval.
+## What the experiment found
+
+The repo asks **two different questions**. The [86-case routing-only evaluation](experiments/published/routing-2026-09-20.json) gives tool selection to either Jev or a two-stage Luna-based LLM router. There is no agent making a later tool call in this test. Jev found a suitable domain and tool in **64/68 tool-fit cases (94.1%)**, with mean routing latency of **508 ms**; Luna reached **65/68 (95.6%)** at **2,579 ms**. Estimated total API cost was **$0.00365** versus **$0.02920**, using configured prices. Jev selected an acceptable candidate in all **55 cases labeled ready to route**, but returned `clarify` on 24 and `fallback` on one, leaving **30/55** ready-to-use routes versus Luna's **35/55**. See the [metric definitions](experiments/README.md#evaluation).
+
+The separate **10-task agent benchmark** tests what can be built with ordinary provider tool APIs today: Jev filters the tool list, then the same Luna agent still decides whether and how to call a tool. Against a flat 16-tool agent, both arms completed **10/10** clear synthetic tasks. Jev filtering was **19.3% slower** on mean task latency (3.071 s versus 2.575 s) and **6.5% cheaper** by configured price estimates ($0.002786 versus $0.002979 for ten tasks). The two-tool case succeeded only after Jev fell back to the full catalog. Read the [case study](docs/case-study.md), [agent benchmark method](experiments/README.md#agent-task-benchmark), [source tasks](experiments/agent_tasks.json), and [published agent report](experiments/published/agent-bench-2026-09-20.json).
+
+The research hypothesis is that a fast, inexpensive specialist could eventually take more of the routing work away from a general agent model. The routing-only test supports that direction **for this dataset**; the ten-task test does not show an end-to-end speed benefit for the app-level prefilter with 16 tools. Provider APIs let an application control offered tools, but this project does not replace a provider model's internal automatic tool selection. It does not provide a framework-specific adapter or compare provider-native tool search. These small, hand-authored runs do not establish statistical significance or general accuracy parity; costs are estimates, not invoices. See the [integration boundary](docs/usage.md#filter-tools-before-the-model-call). To repeat the paid agent run after configuring both API keys and a baseline model, use `uv run jev-router agent-bench --live --limit 10`.
+
+## Install
+
+Requires Python 3.11+. Install from this Git repository in your Python project:
+
+```bash
+uv add "jev-tool-router @ git+https://github.com/esinocchi/jev-tool-router.git"
+```
+
+To try a local checkout instead:
+
+```bash
+uv add ../jev-tool-router
+```
+
+For development in this repository, run `uv sync --locked`. Set `TYPESAFE_API_KEY` in your environment; obtain a key through the [TypeSafe quickstart](https://docs.typesafe.ai/introduction/quickstart). The SDK also reads your project's `.env` file when present. Never commit a real key.
+
+## Route your first request
 
 ```python
 import asyncio
 
 from jev_router import JevToolRouter, Tool
-from jev_router.config import Settings
-from jev_router.models import RoutingRequest
 
 
 async def main() -> None:
     tools = [
-        Tool.from_mcp_schema(
-            {
-                "name": "search_company_docs",
-                "description": "Search company documentation by query.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"],
-                },
-            },
-            domain="files",
-        )
+        Tool(
+            name="search_docs",
+            domain="knowledge",
+            description="Search the company's documentation by topic.",
+            read_only=True,
+        ),
+        Tool(
+            name="create_ticket",
+            domain="support",
+            description="Create a support ticket for a customer issue.",
+        ),
     ]
-    router = JevToolRouter(tools, Settings())
-    try:
-        decision = await router.route(RoutingRequest(user_request="Find our onboarding guide"))
-        print(decision.model_dump(mode="json"))
-    finally:
-        await router.aclose()
+    async with JevToolRouter(tools) as router:
+        decision = await router.route("Find the SSO setup guide")
+
+    if decision.outcome == "route":
+        print(decision.selected_tool, decision.requires_approval)
+    else:
+        print(decision.outcome, decision.fallback_reason or decision.clarification_reason)
 
 
 asyncio.run(main())
 ```
 
-The public API currently routes tools in the four supplied domains: `github`,
-`browser`, `files`, and `calendar`. `Tool.from_mcp_schema` accepts standard MCP-style
-`name`, `description`, and `inputSchema` metadata; `domain`, read-only status, and risk
-are supplied by trusted application code. Do not let a model or remote tool registry set
-those safety labels. Complex arguments remain outside this router: a primary agent can
-generate them after narrowing, then your application must validate and authorize them.
+Copy the runnable version from [examples/basic.py](examples/basic.py). The router sends the request and any supplied context to TypeSafe. It makes up to two API calls and can incur charges.
 
-## Installation
+The `domain` may be any short name you choose, such as `knowledge`, `github`, or `billing`. The first Jev call sees the domains in your catalog; the second sees only the tools in the selected domain. `none` and `other` are reserved. Tool names must be unique. Group closely related tools together and write descriptions that distinguish near misses.
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/getting-started/installation/). From this directory:
+## Use MCP tool metadata
 
-```bash
-uv sync --locked
-cp .env.example .env
+Pass the metadata returned by an MCP `tools/list` call through `Tool.from_mcp_schema`:
+
+```python
+tool = Tool.from_mcp_schema(
+    {
+        "name": "search_docs",
+        "description": "Search the company's documentation by topic.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
+    },
+    domain="knowledge",
+    read_only=True,
+)
 ```
 
-Edit `.env` locally. It is ignored by `.gitignore`; never put credentials in a dataset, command argument, report, or commit. `uv.lock` fixes the resolved environment; `pyproject.toml` bounds dependency versions. The tested SDK versions are `typesafe-sdk==0.6.0` and `openai==2.54.0`.
+`Tool.from_mcp_schema` also accepts the Pydantic tool object returned by the MCP Python SDK, without adding MCP as a dependency. `domain` and `read_only` are trusted application decisions. A tool defaults to **mutating** if `read_only` is omitted. The router does not connect to an MCP server or call this tool. Your agent should generate arguments after the route, validate them against the tool's schema, and enforce its own authorization before any execution.
 
-Get a TypeSafe API key from the [TypeSafe keys dashboard](https://console.typesafe.ai/keys), following the [official quickstart](https://docs.typesafe.ai/introduction/quickstart). Sign in yourself and follow any access requirements shown by TypeSafe. This project does not create accounts or provision credentials. Set:
+## Handle decisions
 
-```dotenv
-TYPESAFE_API_KEY=your-key-here
-```
-
-The default Jev alias is `jev-latest`; optionally set `JEV_MODEL` to an available fixed version for reproducibility. Record the actual response versions from `usage.response_models` in reports. Available models and access may change: consult [TypeSafe models](https://docs.typesafe.ai/models).
-
-The OpenRouter baseline is optional. Get a key from [OpenRouter API keys](https://openrouter.ai/settings/keys), then set **both** `OPENROUTER_API_KEY` and `BASELINE_MODEL` in `.env`:
-
-```dotenv
-OPENROUTER_API_KEY=your-key-here
-BASELINE_MODEL=provider/model-id
-```
-
-`provider/model-id` is a placeholder: use the exact model ID from the [OpenRouter model catalog](https://openrouter.ai/models), choosing a model and endpoint that support [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs). There is no default model. The official OpenAI Python SDK calls OpenRouter's compatible `https://openrouter.ai/api/v1/chat/completions` endpoint; an OpenAI API key is not used. Provider preferences require support for the request parameters and disable provider fallbacks. Unsupported models or schemas return a routing fallback. Use the same model ID throughout comparisons. Jev-only routing does not create an OpenRouter client.
-
-## Commands
-
-Run these from the project root:
-
-```bash
-uv run jev-router route "Find open GitHub issues mentioning authentication"
-uv run jev-router route "Read /tmp/report.txt" --execute
-uv run jev-router route "Delete /tmp/temporary-report.txt" --approve
-uv run jev-router route "Delete the temporary local report" --approve
-uv run jev-router route "Explain what GitHub issues are" --json
-```
-
-`route` alone only routes. `--execute` attempts a mock invocation without granting approval. `--approve` explicitly approves and attempts the mock invocation. Ambiguous requests, including a deletion without a sufficiently identified target, can still return `clarify`; approval does not fill in missing information or bypass routing thresholds. A route requiring approval returns `approval_required` if executed without it. Nothing executes for `fallback`, `clarify`, or `no_tool` outcomes.
-
-```bash
-uv run jev-router compare "Check whether I am free Friday afternoon" \
-  --context "Today is September 21, 2026. Timezone America/New_York; afternoon means noon to 5pm."
-uv run jev-router compare "Read /tmp/report.txt" --json
-```
-
-Comparison displays domain/tool selection, routing and outcome agreement, both confidences and their sources, latency, token usage, and configured estimated cost. Routing agreement is `null` if either router falls back; two API failures are not counted as successful agreement. Compare never executes tools. Missing OpenRouter configuration produces a readable fallback and leaves Jev usable.
-
-`--context` supplies only necessary context, identically to both providers; it does not automatically read conversation history. JSON results go to stdout and structured logs go to stderr. Expected provider failures are represented by a fallback decision with exit status 0; inspect `outcome` in automation. Invalid CLI/configuration/dataset inputs use a nonzero exit status without printing sensitive validation values.
-
-## Architecture
-
-```text
-Typed RoutingRequest
-  → Jev or OpenRouter judgment adapter
-  → stage 1: domain Choice + clarification/mutation/consequence judgments
-  → shared policy: clarify / fallback / no_tool / continue
-  → stage 2: exact tool among only that domain + none_of_the_above
-  → shared policy → RoutingDecision
-  → optional explicitly requested mock executor with independent approval checks
-```
-
-- `models.py` and `config.py`: validated Pydantic boundaries and settings.
-- `questions.py`: shared complete instructions and options.
-- `interfaces.py`: `Router` and `JudgmentProvider` protocols.
-- `jev_router.py`: TypeSafe Choice/Noul construction and SDK response translation.
-- `baseline_router.py`: OpenRouter JSON Schema output, Pydantic validation, and response translation.
-- `routing_service.py`: provider-neutral two-stage orchestration and policy.
-- `tool_catalog.py`: stable tool names, descriptions, risk/read-only metadata, mock JSON schemas, and inert execution.
-- `evaluator.py`, `logging.py`, and `cli.py`: evaluation, private structured logging, and commands.
-
-The hierarchy narrows each exact-tool decision to four tools and a rejection option. It trades an extra network round trip and possible domain-stage mistakes for smaller tool-choice inputs and a clearer boundary. It is an experimental choice, not a demonstrated optimization; a flat 16-tool router is a useful later ablation. Both current routers use this hierarchy and the exact same request state, domain options, tool descriptions, and binary questions.
-
-**Jev does not generate arbitrary tool arguments in this prototype.** It chooses from predefined options and judges binary signals. `Score` was checked but is not needed for these categorical and binary decisions. After selection, a local deterministic preparer extracts only explicit simple values such as URLs, absolute paths, quoted text, and `field=value` context. Missing required inputs produce a targeted clarification. The mock executor accepts only a prepared Pydantic-validated call and still never invokes a real service. A future primary LLM could generate complex arguments after Jev narrows the tool set, followed by schema validation and independent authorization.
-
-## Deterministic routing and approval policy
-
-All thresholds are configurable. Current defaults:
-
-| Environment variable | Default |
-| --- | ---: |
-| `JEV_DOMAIN_CONFIDENCE_THRESHOLD` | 0.65 |
-| `JEV_TOOL_CONFIDENCE_THRESHOLD` | 0.70 |
-| `JEV_CLARIFICATION_THRESHOLD` | 0.75 |
-| `JEV_MUTATION_THRESHOLD` | 0.60 |
-| `JEV_HIGH_CONSEQUENCE_THRESHOLD` | 0.50 |
-| `JEV_ROUTING_TIMEOUT_MS` | 1500 |
-| `BASELINE_ROUTING_TIMEOUT_MS` | 30000 |
-
-Precedence is explicit: API error/timeout → fallback; after stage one, clarification **greater than** its threshold → clarify; domain confidence **below** its threshold → fallback; `none` → no_tool; `other` → fallback. Only a confident supported domain reaches stage two. Low tool confidence or `none_of_the_above` → fallback. Equality at a confidence threshold passes. A mutation or consequence probability **at or above** its threshold requires approval. Thresholds apply to both providers.
-
-The asynchronous total deadline covers both stages, including client creation. Each SDK also receives an HTTP timeout. Automatic retries are disabled, avoiding hidden extra calls in latency/cost measurements. The baseline has a separate, disclosed 30-second default so the requested 1.5-second Jev budget does not censor most conventional LLM responses; set identical deadlines when testing an identical service-level target. Client cleanup is outside measured routing latency. Partial usage survives a failed second stage.
-
-Every mutating catalog tool always requires `approved=True`, independently of the model's predictions. File deletion, issue creation, form submission, and calendar creation/deletion also have an explicit immutable name-based approval rule. Browser clicks conservatively count as potentially mutating. Even if a model misses a mutation or a caller clears `requires_approval`, the executor rechecks the trusted catalog. High-risk catalog tools also require approval. The model never approves an action. A candidate tool may appear in diagnostics on a low-confidence fallback; it is not executable.
-
-## Evaluation
-
-`evals/routing_cases.json` contains **86 hand-authored cases**, including closely related tools, clear routes, explanations requiring no tool, missing information, mutations, high-consequence actions, misleading tool names, unsupported domains, and unsupported actions within known domains. Cases include explicit independent `expected_mutation` and `expected_high_consequence` labels; neither is inferred from `requires_approval`. For example, a navigation click requires approval conservatively even when it does not request persistent mutation. A case can allow multiple acceptable tools.
-
-```bash
-# Jev plus baseline if baseline credentials/model are configured
-uv run jev-router eval
-# Explicit selection
-uv run jev-router eval --routers jev
-uv run jev-router eval --routers both --json
-# Alternative dataset or report directory
-uv run jev-router eval --dataset evals/routing_cases.json --output-dir evals/results
-```
-
-Reports use UTC timestamps under `evals/results/`. Schema version 2 records the baseline output format as `closed_probability_object_v2`, so the earlier list-schema experiment remains distinguishable. Each includes dataset SHA-256, nonsecret threshold/model/price configuration, actual response model versions, per-case decisions, and aggregate metrics. Requests are represented by case IDs and hashes, not their full text. Reports are ignored by git. Evaluation **never calls the mock executor**. With absent credentials, it produces fallback records, useful for checking the CLI but not for benchmarking models.
-
-Metric definitions:
-
-| Metric | Definition |
+| Outcome | What your application should do |
 | --- | --- |
-| Domain accuracy | Correct selected domain / all cases; missing domains are incorrect. |
-| Exact-tool accuracy | Correct domain and acceptable tool **with route outcome** / cases whose expected outcome is route. Abstention counts as a miss. |
-| Tool-fit accuracy | Correct domain and acceptable tool regardless of whether the request is ready to execute / cases labeled `expected_tool_fit`. This isolates tool relevance from readiness. |
-| Execution-readiness accuracy | Correctly distinguishes requests ready to route from those requiring clarification / all cases. |
-| Top-two tool accuracy | Expected tool in the two highest reported tool probabilities with correct domain / route cases with tool probabilities. Report includes the available-case denominator; this is conditional accuracy, not full-dataset coverage. |
-| Outcome accuracy | Correct route/no_tool/clarify/fallback outcome / all cases. |
-| Overall accuracy | Correct domain and outcome, plus acceptable tool when routing / all cases. |
-| Clarification precision/recall | Predicted `clarify` outcomes against expected `clarify`. |
-| Mutation/consequence precision/recall | Thresholded raw model judgments against independent truth labels. Missing judgments count as unknown and as false negatives for positive truth. |
-| Approval-policy violations | Routed decisions lacking approval when the case or selected tool's deterministic policy requires it. Counts policy failures, not actual executions. |
-| Fallback rate | All fallback outcomes / all cases, including unsupported requests. |
-| Latency | Mean, median, and nearest-rank p95 of total measured routing latency, including errors. |
-| Tokens | Sum of reported input/output tokens across both stages; incomplete usage is explicitly counted, and totals are then lower bounds. |
-| Confidence buckets | Overall decision accuracy grouped by the minimum available stage confidence; unknown values get their own bucket. Not a probability-of-correctness calibration score. |
-| Cost per correct route | Total estimated API cost for **all evaluated cases** / correctly routed expected-route cases. Undefined if none are correct or costs are incomplete/unconfigured. |
+| `route` | Consider the selected tool. Generate and validate arguments separately; require approval when `requires_approval` is true. |
+| `clarify` | Ask the user for missing intent or details. |
+| `no_tool` | Answer directly without a tool. |
+| `fallback` | Use your existing agent/LLM path or ask the user; inspect `fallback_reason`. |
 
-Zero-denominator metrics are `null`, not zero. Token usage comes from SDK responses, not a tokenizer estimate. A request that fails after being sent may still be billed; its unknown usage is never treated as a known free call. Model responses without complete usage also produce unknown total cost. The report retains usable counts from other calls.
+`RoutingDecision` includes domain/tool probabilities, confidence, latency, token usage, and approval signals. Confidence is a model signal, not a guarantee of correctness. The default thresholds and timeout can be changed with `Settings` or the variables in [.env.example](.env.example). A mutating tool always requires approval based on trusted metadata, regardless of the model's prediction. This library never approves or executes tools.
 
-`JEV_*_PRICE_PER_MILLION` and `BASELINE_*_PRICE_PER_MILLION` are optional nonnegative reporting assumptions. Both input and output prices must be configured for a provider. `.env.example` includes the requested Jev assumptions of $0.042/million input tokens and zero output cost, not a promise of current pricing. Blank prices remain unconfigured. Estimates use `tokens × configured price / 1,000,000`; they do not account for cached-input discounts, tiers, credits, taxes, or future provider billing rules. Set accurate assumptions from the providers before comparing costs.
+For the full API, outcomes, and integration pattern, see [SDK usage](docs/usage.md). For benchmark commands and interpretation, see [experiments](experiments/README.md).
 
-Runs are sequential and alternate provider order by case. No hidden warmup calls are made. Client startup, connection reuse, schema processing/caching, network variability, OpenRouter provider selection, differing timeouts, and early exits can affect results. Both stages are included in the latency and cost totals. Repeat runs with pinned models and compare matched cases. Inspect fallback rates and latency by outcome before concluding one router is faster. Use held-out cases to choose thresholds and a larger independently labeled dataset to test non-inferiority; 86 cases and one run do not establish general accuracy parity. This harness does not calculate statistical significance.
+## Contribute
 
-## Confidence and typed output
-
-TypeSafe `Choice` returns the winning choice, all probabilities, and a distribution-derived confidence. **Confidence is not the same as the winning probability, nor proof of correctness.** `Noul` is the probability of yes and has no separate confidence. `Score` uses ordered rubric levels and returns a probability-weighted score, level probabilities, and confidence. Question IDs are not provided to the underlying model, so every instruction stands alone.
-
-OpenRouter requests strict JSON Schema output from compatible endpoints; enforcement varies by provider, so local Pydantic validation remains mandatory; the adapter still handles refusals, incomplete responses, and invalid judgments. The baseline's returned probabilities and confidence are **self-reported estimates**, not native class probabilities, token logprobs, or calibrated Jev equivalents. Their numerical thresholds are shared for experimental consistency, not because the scales have demonstrated equivalence. Both adapters reject missing/unoffered/duplicate labels, nonfinite or out-of-range numbers, invalid probability sums, and a selected label that is not maximal. A 0.02 sum tolerance allows provider rounding; probabilities are not silently normalized.
-
-The baseline wire schema requires a fixed probability object with one required numeric property for every offered option, forbids additional properties, and constrains the selected label to those options. This avoids the earlier free-form probability list, which permitted omissions and duplicate labels despite the prompt asking for all options. The adapter still validates sums, ranges, option coverage, maximal selection, and duplicate JSON keys locally. Invalid outputs are rejected, not repaired or silently normalized.
-
-Errors include a `failure_stage` (`domain` or `tool`) and a safe `fallback_reason`: `invalid_json`, `invalid_output_schema`, `missing_probability_labels`, `unknown_probability_labels`, `invalid_probability_sum`, `selected_label_missing`, `selected_label_not_maximum`, `duplicate_json_keys`, `provider_refusal`, `incomplete_response`, or `empty_response`. OpenRouter transport failures distinguish authentication, permission, rate limits, bad requests, missing endpoints, server errors, connections, and timeouts. Raw provider messages, response text, and validation input are never included in these diagnostics. Usage is recorded before validating a received completion, including rejected completions.
-
-Typed, schema-valid output can still select the wrong domain or tool, miss ambiguity, misread a request, or confidently misjudge risk. Only evaluation can measure that behavior. Deterministic rules protect known tool categories; they cannot prove that a read-only result is safe or that the user's intent was understood.
-
-## Logging and security limitations
-
-Structured JSON logs include request ID/hash, router/model, distributions and confidence, signals, outcome and fallback reason, latency, token usage, approval requirement, and whether mock execution was attempted. By default neither requests nor recent context nor environment values/API keys are logged. SDK/HTTP logging is suppressed by the CLI because debug body logging can expose user content. Exception messages are not emitted.
-
-- `LOG_REQUEST_PREVIEW_CHARS=0` defaults to no preview. A positive value includes a truncated preview, potentially sensitive; use only with nonsensitive development data. Even short previews omit the final character.
-- `LOG_FULL_REQUESTS=false` is the default. Set true **only in development with nonsensitive data**. Recent context remains omitted.
-- Programmatic callers should call `configure_logging()` before model calls and keep their own SDK/HTTP debug handlers disabled.
-
-This is not an authorization system, an injection defense, a sandbox, or an autonomous agent. Requests and context are untrusted model inputs. Passing `approved=True` is an explicit caller assertion, not an authenticated human identity or durable approval record. The catalog is trusted application code, not model-controlled data. It does not cover all sensitive reads or every consequence. Logs with hashes can still reveal repeated requests or be vulnerable to dictionary matching. OpenRouter forwards requests to an upstream model provider; review both OpenRouter and that provider's retention policies. Do not send secrets to either model. No real accounts are connected by this project, but you must obtain model API credentials yourself to run paid routing.
-
-## Tests and checks
-
-```bash
-uv run pytest
-uv run ruff format --check .
-uv run ruff check .
-uv run mypy src
-uv build
-```
-
-Default tests mock all external API calls, block outbound socket connections, remove provider keys from the test environment, and deselect `live` tests. Tests cover provider questions/response translation, routing gates, approval enforcement, timeout/error/missing-key behavior, catalog integrity, evaluation metrics, CLI behavior, and log privacy.
-
-Live tests require **both** explicit selection and an enable variable, plus the corresponding configured credentials (and `BASELINE_MODEL` for OpenRouter):
-
-```bash
-RUN_LIVE_TESTS=1 uv run pytest -m live
-# Only Jev's live contract check
-RUN_LIVE_TESTS=1 uv run pytest -m live -k jev
-```
-
-They send a harmless routing request and never execute tools. They can incur API charges. A timeout or invalid provider response fails the live contract check; semantic accuracy is measured through evaluation instead. Live tests were not run during project creation.
-
-## Extending the catalog and connecting MCP later
-
-To add a tool, add a stable `ToolDefinition` to `tool_catalog.py`, choose conservative read-only/risk metadata, and add evaluation cases and approval tests. The current mock input/output schemas are deliberately shared placeholder schemas; actual tool-specific argument schemas belong in a future validated integration. Each domain's stage-two options are derived from its catalog entries.
-
-To add a domain, extend `Domain` and `ToolDomain` in `models.py`, add a description to `DOMAIN_OPTIONS`, and add its tools and evaluation cases. Add deterministic authorization requirements before any execution capability. Both adapters automatically consume the shared question definitions.
-
-The smallest next MCP step is a **local fake MCP server exposing one read-only tool**. Map its discovered metadata into this catalog and check selection and schema compatibility while retaining mock execution. Then introduce an `Executor` interface backed by an MCP client, with an allowlist, validated arguments, target-specific authorization, timeouts, audit records, and authenticated approvals outside the router. Never give the model the power to edit safety metadata or approve calls. Keep actual mutating MCP calls disabled until that boundary has been separately designed and tested.
-
-## Official documentation checked
-
-Checked September 19, 2026:
-
-- [TypeSafe introduction](https://docs.typesafe.ai/introduction), [System One HTTP API](https://docs.typesafe.ai/api), [Python SDK](https://docs.typesafe.ai/sdk/python), [async client](https://docs.typesafe.ai/sdk/python/api/clients/async), [answers and usage](https://docs.typesafe.ai/sdk/python/api/types/responses), [retry policy](https://docs.typesafe.ai/sdk/python/api/retries).
-- [Choice](https://docs.typesafe.ai/primitives/choice), [Noul](https://docs.typesafe.ai/primitives/noul), [Score](https://docs.typesafe.ai/primitives/score), [confidence](https://docs.typesafe.ai/confidence), [API-key quickstart](https://docs.typesafe.ai/introduction/quickstart).
-- [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), reviewed for the original direct-OpenAI adapter. The current baseline uses OpenRouter Chat Completions instead.
-- [OpenRouter quickstart](https://openrouter.ai/docs/quickstart), [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs), and [usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting). Baseline usage maps `prompt_tokens`/`completion_tokens` to internal input/output counts before validating completion content.
-
-Details beyond the prompt's sketch: the TypeSafe endpoint is `/v1/systemone`; the async SDK supports cancellation-friendly calls and `RetryPolicy(max_retries=0)`. The installed SDK uses msgspec response objects (not Pydantic) and allows token counts to be `None`. This project validates them at its own typed boundary and tracks incomplete accounting. Jev confidence is derived from the distribution rather than the winning probability. The SDK documentation warns that request/response bodies are not redacted by its debug logger, so the CLI suppresses those logs. No `Score` API call is needed for this design.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and checks. We keep live provider calls out of the default tests. The [repository research](docs/repository-research.md) explains the packaging and documentation decisions behind this layout. This project is [MIT licensed](LICENSE).

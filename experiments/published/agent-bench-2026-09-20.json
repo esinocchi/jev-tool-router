@@ -1,0 +1,1237 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-20T04:51:36.347147+00:00",
+  "model": "openai/gpt-5.6-luna",
+  "tool_count": 16,
+  "dataset_sha256": "bd1c18f08a53fda7683ca02325b53c57f954fcd3ef8df0393b040cbcc10d650c",
+  "settings": {
+    "jev_model": "jev-latest",
+    "baseline_model": "openai/gpt-5.6-luna",
+    "jev_domain_confidence_threshold": 0.65,
+    "jev_tool_confidence_threshold": 0.7,
+    "jev_clarification_threshold": 0.75,
+    "jev_mutation_threshold": 0.6,
+    "jev_high_consequence_threshold": 0.5,
+    "jev_routing_timeout_ms": 1500,
+    "baseline_routing_timeout_ms": 30000,
+    "jev_input_price_per_million": 0.042,
+    "jev_output_price_per_million": 0.0,
+    "baseline_input_price_per_million": 0.2,
+    "baseline_output_price_per_million": 1.2
+  },
+  "summaries": {
+    "flat": {
+      "task_count": 10,
+      "success_count": 10,
+      "success_rate": 1.0,
+      "mean_latency_ms": 2574.8604460037313,
+      "median_latency_ms": 2304.9519794876687,
+      "mean_success_latency_ms": 2574.8604460037313,
+      "total_input_tokens": 11401,
+      "total_output_tokens": 582,
+      "estimated_cost_usd": 0.0029786000000000005,
+      "cost_per_success_usd": 0.00029786000000000005
+    },
+    "jev": {
+      "task_count": 10,
+      "success_count": 10,
+      "success_rate": 1.0,
+      "mean_latency_ms": 3071.465670701582,
+      "median_latency_ms": 3267.35174949863,
+      "mean_success_latency_ms": 3071.465670701582,
+      "total_input_tokens": 27047,
+      "total_output_tokens": 3856,
+      "estimated_cost_usd": 0.00278638,
+      "cost_per_success_usd": 0.000278638
+    }
+  },
+  "cases": [
+    {
+      "case_id": "agent_001",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "github_search_issues"
+      ],
+      "failure_reason": null,
+      "latency_ms": 3571.569207997527,
+      "input_tokens": 293,
+      "output_tokens": 67,
+      "routing_input_tokens": 2566,
+      "routing_output_tokens": 376,
+      "routing_cost_usd": 0.00010777200000000001,
+      "routing_decisions": [
+        {
+          "request_id": "fcbdde33-fe91-4bfd-b892-19434d7a5772",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "github",
+          "domain_probabilities": {
+            "github": 1.0,
+            "calendar": 0.0,
+            "files": 0.0,
+            "none": 0.0,
+            "browser": 0.0,
+            "other": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "github_search_issues",
+          "tool_probabilities": {
+            "github_read_file": 0.0,
+            "github_search_code": 0.0,
+            "none_of_the_above": 0.0,
+            "github_search_issues": 1.0,
+            "github_create_issue": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.3,
+          "mutation_probability": 0.12,
+          "high_consequence_probability": 0.1,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 838.8711669831537,
+          "usage": {
+            "input_tokens": 1260,
+            "output_tokens": 188,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.00005292,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "01516c60-42e5-42ff-9b76-5e74c9010e3a",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "github",
+          "domain_probabilities": {
+            "browser": 0.0,
+            "calendar": 0.0,
+            "github": 0.8,
+            "other": 0.0,
+            "none": 0.2,
+            "files": 0.0
+          },
+          "domain_confidence": 0.76,
+          "selected_tool": "github_search_issues",
+          "tool_probabilities": {
+            "github_create_issue": 0.0,
+            "github_search_code": 0.0,
+            "github_read_file": 0.0,
+            "none_of_the_above": 0.16,
+            "github_search_issues": 0.84
+          },
+          "tool_confidence": 0.8,
+          "needs_clarification_probability": 0.1,
+          "mutation_probability": 0.18,
+          "high_consequence_probability": 0.08,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 380.3560409578495,
+          "usage": {
+            "input_tokens": 1306,
+            "output_tokens": 188,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000054852,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_001",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "github_search_issues"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2098.5453330213204,
+      "input_tokens": 1208,
+      "output_tokens": 63,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_002",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "github_read_file"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2299.4962919619866,
+      "input_tokens": 1188,
+      "output_tokens": 55,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_002",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "github_read_file"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2963.134290999733,
+      "input_tokens": 732,
+      "output_tokens": 54,
+      "routing_input_tokens": 2036,
+      "routing_output_tokens": 304,
+      "routing_cost_usd": 0.000085512,
+      "routing_decisions": [
+        {
+          "request_id": "7433efc4-ca53-4e0a-89aa-0b7d6b377fd8",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "github",
+          "domain_probabilities": {
+            "none": 0.0,
+            "browser": 0.0,
+            "files": 0.0,
+            "calendar": 0.0,
+            "github": 1.0,
+            "other": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "github_read_file",
+          "tool_probabilities": {
+            "github_search_issues": 0.0,
+            "github_read_file": 1.0,
+            "github_create_issue": 0.0,
+            "none_of_the_above": 0.0,
+            "github_search_code": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.57,
+          "mutation_probability": 0.11,
+          "high_consequence_probability": 0.07,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 642.3669590149075,
+          "usage": {
+            "input_tokens": 1250,
+            "output_tokens": 186,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.0000525,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "ce3042c0-b474-429d-9c17-b9c33383782f",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "github",
+          "domain_probabilities": {
+            "browser": 0.0,
+            "other": 0.0,
+            "files": 0.0,
+            "none": 0.34,
+            "github": 0.66,
+            "calendar": 0.0
+          },
+          "domain_confidence": 0.59,
+          "selected_tool": null,
+          "tool_probabilities": {},
+          "tool_confidence": null,
+          "needs_clarification_probability": 0.16,
+          "mutation_probability": 0.06,
+          "high_consequence_probability": 0.07,
+          "outcome": "fallback",
+          "fallback_reason": "low_domain_confidence",
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 232.22404200350866,
+          "usage": {
+            "input_tokens": 786,
+            "output_tokens": 118,
+            "complete": true,
+            "attempted_calls": 1,
+            "reported_calls": 1,
+            "response_models": [
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000033012,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_003",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "browser_search_web"
+      ],
+      "failure_reason": null,
+      "latency_ms": 3644.164042023476,
+      "input_tokens": 739,
+      "output_tokens": 84,
+      "routing_input_tokens": 2556,
+      "routing_output_tokens": 368,
+      "routing_cost_usd": 0.00010735200000000001,
+      "routing_decisions": [
+        {
+          "request_id": "f7bde68c-3ee7-4ac3-9d95-a661b56d55e0",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "browser",
+          "domain_probabilities": {
+            "other": 0.0,
+            "files": 0.0,
+            "none": 0.0,
+            "browser": 1.0,
+            "github": 0.0,
+            "calendar": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "browser_search_web",
+          "tool_probabilities": {
+            "browser_search_web": 1.0,
+            "browser_click": 0.0,
+            "browser_open_page": 0.0,
+            "none_of_the_above": 0.0,
+            "browser_submit_form": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.29,
+          "mutation_probability": 0.11,
+          "high_consequence_probability": 0.11,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 384.04408300993964,
+          "usage": {
+            "input_tokens": 1244,
+            "output_tokens": 183,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000052248000000000005,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "78b729a2-df20-480c-993a-5ac11888dece",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "browser",
+          "domain_probabilities": {
+            "browser": 0.78,
+            "github": 0.0,
+            "files": 0.0,
+            "none": 0.22,
+            "calendar": 0.0,
+            "other": 0.0
+          },
+          "domain_confidence": 0.74,
+          "selected_tool": null,
+          "tool_probabilities": {
+            "browser_click": 0.0,
+            "browser_search_web": 0.44,
+            "none_of_the_above": 0.56,
+            "browser_open_page": 0.0,
+            "browser_submit_form": 0.0
+          },
+          "tool_confidence": 0.44,
+          "needs_clarification_probability": 0.12,
+          "mutation_probability": 0.18,
+          "high_consequence_probability": 0.1,
+          "outcome": "fallback",
+          "fallback_reason": "low_tool_confidence",
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 551.0183749720454,
+          "usage": {
+            "input_tokens": 1312,
+            "output_tokens": 185,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000055104000000000006,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_003",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "browser_search_web"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2310.407667013351,
+      "input_tokens": 1204,
+      "output_tokens": 70,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_004",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "browser_open_page"
+      ],
+      "failure_reason": null,
+      "latency_ms": 4511.0207090037875,
+      "input_tokens": 1193,
+      "output_tokens": 53,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_004",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "browser_open_page"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2908.818583993707,
+      "input_tokens": 263,
+      "output_tokens": 42,
+      "routing_input_tokens": 2530,
+      "routing_output_tokens": 366,
+      "routing_cost_usd": 0.00010626,
+      "routing_decisions": [
+        {
+          "request_id": "17203d14-894d-41ae-a671-74a1123ff59e",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "browser",
+          "domain_probabilities": {
+            "browser": 1.0,
+            "none": 0.0,
+            "files": 0.0,
+            "calendar": 0.0,
+            "github": 0.0,
+            "other": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "browser_open_page",
+          "tool_probabilities": {
+            "browser_search_web": 0.0,
+            "browser_submit_form": 0.0,
+            "none_of_the_above": 0.0,
+            "browser_click": 0.0,
+            "browser_open_page": 1.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.33,
+          "mutation_probability": 0.17,
+          "high_consequence_probability": 0.1,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 569.6440419997089,
+          "usage": {
+            "input_tokens": 1242,
+            "output_tokens": 183,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000052164000000000004,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "90af29b4-2f47-4d81-a010-ad70f141fd85",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "browser",
+          "domain_probabilities": {
+            "none": 0.13,
+            "browser": 0.87,
+            "files": 0.0,
+            "calendar": 0.0,
+            "github": 0.0,
+            "other": 0.0
+          },
+          "domain_confidence": 0.85,
+          "selected_tool": "browser_open_page",
+          "tool_probabilities": {
+            "browser_open_page": 0.79,
+            "none_of_the_above": 0.21,
+            "browser_search_web": 0.0,
+            "browser_click": 0.0,
+            "browser_submit_form": 0.0
+          },
+          "tool_confidence": 0.73,
+          "needs_clarification_probability": 0.12,
+          "mutation_probability": 0.3,
+          "high_consequence_probability": 0.09,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 570.883792010136,
+          "usage": {
+            "input_tokens": 1288,
+            "output_tokens": 183,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000054096000000000005,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_005",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "files_search"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2576.255916035734,
+      "input_tokens": 717,
+      "output_tokens": 36,
+      "routing_input_tokens": 2016,
+      "routing_output_tokens": 297,
+      "routing_cost_usd": 0.000084672,
+      "routing_decisions": [
+        {
+          "request_id": "494e4244-cce0-4e77-8892-aadd4abcf006",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "files",
+          "domain_probabilities": {
+            "other": 0.0,
+            "calendar": 0.0,
+            "github": 0.0,
+            "files": 1.0,
+            "none": 0.0,
+            "browser": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "files_search",
+          "tool_probabilities": {
+            "files_read": 0.0,
+            "files_delete": 0.0,
+            "files_write": 0.0,
+            "files_search": 1.0,
+            "none_of_the_above": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.68,
+          "mutation_probability": 0.12,
+          "high_consequence_probability": 0.14,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 452.13420898653567,
+          "usage": {
+            "input_tokens": 1230,
+            "output_tokens": 179,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000051660000000000003,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "3ec61d89-9fc1-4e8a-82d1-ec355b720827",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "files",
+          "domain_probabilities": {
+            "browser": 0.0,
+            "none": 0.31,
+            "other": 0.0,
+            "files": 0.69,
+            "github": 0.0,
+            "calendar": 0.0
+          },
+          "domain_confidence": 0.63,
+          "selected_tool": null,
+          "tool_probabilities": {},
+          "tool_confidence": null,
+          "needs_clarification_probability": 0.11,
+          "mutation_probability": 0.07,
+          "high_consequence_probability": 0.1,
+          "outcome": "fallback",
+          "fallback_reason": "low_domain_confidence",
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 286.2256249645725,
+          "usage": {
+            "input_tokens": 786,
+            "output_tokens": 118,
+            "complete": true,
+            "attempted_calls": 1,
+            "reported_calls": 1,
+            "response_models": [
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000033012,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_005",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "files_search"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2241.521959018428,
+      "input_tokens": 1179,
+      "output_tokens": 39,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_006",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "files_read"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2066.2066669901833,
+      "input_tokens": 1176,
+      "output_tokens": 34,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_006",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "files_read"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2570.2680409885943,
+      "input_tokens": 710,
+      "output_tokens": 34,
+      "routing_input_tokens": 2012,
+      "routing_output_tokens": 297,
+      "routing_cost_usd": 0.000084504,
+      "routing_decisions": [
+        {
+          "request_id": "9c4eed24-eef2-4624-8ea5-7fa5004c948d",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "files",
+          "domain_probabilities": {
+            "github": 0.0,
+            "browser": 0.0,
+            "other": 0.0,
+            "files": 1.0,
+            "none": 0.0,
+            "calendar": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "files_read",
+          "tool_probabilities": {
+            "files_read": 1.0,
+            "none_of_the_above": 0.0,
+            "files_delete": 0.0,
+            "files_search": 0.0,
+            "files_write": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.2,
+          "mutation_probability": 0.06,
+          "high_consequence_probability": 0.11,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 665.9617090481333,
+          "usage": {
+            "input_tokens": 1228,
+            "output_tokens": 179,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000051576,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "655a9711-5915-4132-94d2-f0835cc48b61",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "files",
+          "domain_probabilities": {
+            "files": 0.6,
+            "browser": 0.0,
+            "github": 0.0,
+            "other": 0.0,
+            "none": 0.4,
+            "calendar": 0.0
+          },
+          "domain_confidence": 0.51,
+          "selected_tool": null,
+          "tool_probabilities": {},
+          "tool_confidence": null,
+          "needs_clarification_probability": 0.11,
+          "mutation_probability": 0.07,
+          "high_consequence_probability": 0.09,
+          "outcome": "fallback",
+          "fallback_reason": "low_domain_confidence",
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 249.0834589698352,
+          "usage": {
+            "input_tokens": 784,
+            "output_tokens": 118,
+            "complete": true,
+            "attempted_calls": 1,
+            "reported_calls": 1,
+            "response_models": [
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.00003292800000000001,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_007",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "calendar_search_events"
+      ],
+      "failure_reason": null,
+      "latency_ms": 3577.173415978905,
+      "input_tokens": 279,
+      "output_tokens": 105,
+      "routing_input_tokens": 2562,
+      "routing_output_tokens": 374,
+      "routing_cost_usd": 0.000107604,
+      "routing_decisions": [
+        {
+          "request_id": "3ed16297-01ac-4dbd-97bb-9bc1cff40fa7",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "calendar",
+          "domain_probabilities": {
+            "github": 0.0,
+            "other": 0.0,
+            "calendar": 1.0,
+            "browser": 0.0,
+            "files": 0.0,
+            "none": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "calendar_search_events",
+          "tool_probabilities": {
+            "none_of_the_above": 0.0,
+            "calendar_search_events": 1.0,
+            "calendar_delete_event": 0.0,
+            "calendar_create_event": 0.0,
+            "calendar_check_availability": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.21,
+          "mutation_probability": 0.1,
+          "high_consequence_probability": 0.1,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 443.24683398008347,
+          "usage": {
+            "input_tokens": 1259,
+            "output_tokens": 187,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000052878,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "bcd1ef8f-e022-4554-877d-13c64660f4ae",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "calendar",
+          "domain_probabilities": {
+            "browser": 0.0,
+            "other": 0.0,
+            "files": 0.0,
+            "none": 0.04,
+            "github": 0.0,
+            "calendar": 0.96
+          },
+          "domain_confidence": 0.96,
+          "selected_tool": "calendar_search_events",
+          "tool_probabilities": {
+            "none_of_the_above": 0.11,
+            "calendar_search_events": 0.89,
+            "calendar_create_event": 0.0,
+            "calendar_delete_event": 0.0,
+            "calendar_check_availability": 0.0
+          },
+          "tool_confidence": 0.86,
+          "needs_clarification_probability": 0.67,
+          "mutation_probability": 0.15,
+          "high_consequence_probability": 0.1,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 447.2195419948548,
+          "usage": {
+            "input_tokens": 1303,
+            "output_tokens": 187,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000054726000000000004,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_007",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "calendar_search_events"
+      ],
+      "failure_reason": null,
+      "latency_ms": 2652.384917018935,
+      "input_tokens": 1201,
+      "output_tokens": 62,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_008",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "calendar_check_availability"
+      ],
+      "failure_reason": null,
+      "latency_ms": 3321.941790985875,
+      "input_tokens": 1203,
+      "output_tokens": 79,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_008",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "calendar_check_availability"
+      ],
+      "failure_reason": null,
+      "latency_ms": 4231.635459000245,
+      "input_tokens": 283,
+      "output_tokens": 118,
+      "routing_input_tokens": 2550,
+      "routing_output_tokens": 380,
+      "routing_cost_usd": 0.0001071,
+      "routing_decisions": [
+        {
+          "request_id": "8cb26451-1ac9-431b-9262-20499dd4fac0",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "calendar",
+          "domain_probabilities": {
+            "calendar": 1.0,
+            "none": 0.0,
+            "github": 0.0,
+            "files": 0.0,
+            "other": 0.0,
+            "browser": 0.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": "calendar_check_availability",
+          "tool_probabilities": {
+            "calendar_check_availability": 1.0,
+            "calendar_search_events": 0.0,
+            "none_of_the_above": 0.0,
+            "calendar_delete_event": 0.0,
+            "calendar_create_event": 0.0
+          },
+          "tool_confidence": 1.0,
+          "needs_clarification_probability": 0.45,
+          "mutation_probability": 0.16,
+          "high_consequence_probability": 0.11,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 838.5475410032086,
+          "usage": {
+            "input_tokens": 1251,
+            "output_tokens": 190,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000052542,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "024e6f8b-ce62-4ca8-9203-4043a6682d02",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "calendar",
+          "domain_probabilities": {
+            "github": 0.0,
+            "browser": 0.0,
+            "none": 0.13,
+            "other": 0.0,
+            "calendar": 0.87,
+            "files": 0.0
+          },
+          "domain_confidence": 0.85,
+          "selected_tool": "calendar_check_availability",
+          "tool_probabilities": {
+            "calendar_delete_event": 0.0,
+            "calendar_search_events": 0.0,
+            "calendar_create_event": 0.0,
+            "calendar_check_availability": 0.95,
+            "none_of_the_above": 0.05
+          },
+          "tool_confidence": 0.94,
+          "needs_clarification_probability": 0.09,
+          "mutation_probability": 0.1,
+          "high_consequence_probability": 0.09,
+          "outcome": "route",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 422.12095903232694,
+          "usage": {
+            "input_tokens": 1299,
+            "output_tokens": 190,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.00005455800000000001,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_009",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [],
+      "failure_reason": null,
+      "latency_ms": 1007.7832500101067,
+      "input_tokens": 53,
+      "output_tokens": 11,
+      "routing_input_tokens": 758,
+      "routing_output_tokens": 118,
+      "routing_cost_usd": 0.000031836000000000005,
+      "routing_decisions": [
+        {
+          "request_id": "f4d25406-702e-4d71-a157-f0cf5cf98d48",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "none",
+          "domain_probabilities": {
+            "files": 0.0,
+            "browser": 0.0,
+            "github": 0.0,
+            "none": 1.0,
+            "other": 0.0,
+            "calendar": 0.0
+          },
+          "domain_confidence": 0.99,
+          "selected_tool": null,
+          "tool_probabilities": {},
+          "tool_confidence": null,
+          "needs_clarification_probability": 0.08,
+          "mutation_probability": 0.03,
+          "high_consequence_probability": 0.05,
+          "outcome": "no_tool",
+          "fallback_reason": null,
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 273.50033301627263,
+          "usage": {
+            "input_tokens": 758,
+            "output_tokens": 118,
+            "complete": true,
+            "attempted_calls": 1,
+            "reported_calls": 1,
+            "response_models": [
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000031836000000000005,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    },
+    {
+      "case_id": "agent_009",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [],
+      "failure_reason": null,
+      "latency_ms": 940.1777500170283,
+      "input_tokens": 561,
+      "output_tokens": 11,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_010",
+      "arm": "flat",
+      "success": true,
+      "called_tools": [
+        "github_search_issues",
+        "github_read_file"
+      ],
+      "failure_reason": null,
+      "latency_ms": 3306.9013750064187,
+      "input_tokens": 1288,
+      "output_tokens": 116,
+      "routing_input_tokens": 0,
+      "routing_output_tokens": 0,
+      "routing_cost_usd": 0.0,
+      "routing_decisions": []
+    },
+    {
+      "case_id": "agent_010",
+      "arm": "jev",
+      "success": true,
+      "called_tools": [
+        "github_search_issues",
+        "github_read_file"
+      ],
+      "failure_reason": null,
+      "latency_ms": 3663.854499987792,
+      "input_tokens": 1288,
+      "output_tokens": 119,
+      "routing_input_tokens": 2104,
+      "routing_output_tokens": 306,
+      "routing_cost_usd": 0.000088368,
+      "routing_decisions": [
+        {
+          "request_id": "97186f98-400f-497a-99e3-dfa17c73f4bc",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "github",
+          "domain_probabilities": {
+            "none": 0.0,
+            "calendar": 0.0,
+            "other": 0.0,
+            "browser": 0.0,
+            "files": 0.0,
+            "github": 1.0
+          },
+          "domain_confidence": 1.0,
+          "selected_tool": null,
+          "tool_probabilities": {
+            "github_search_code": 0.0,
+            "github_read_file": 0.0,
+            "none_of_the_above": 0.81,
+            "github_search_issues": 0.19,
+            "github_create_issue": 0.0
+          },
+          "tool_confidence": 0.75,
+          "needs_clarification_probability": 0.31,
+          "mutation_probability": 0.13,
+          "high_consequence_probability": 0.08,
+          "outcome": "fallback",
+          "fallback_reason": "no_matching_tool",
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 462.767334014643,
+          "usage": {
+            "input_tokens": 1284,
+            "output_tokens": 188,
+            "complete": true,
+            "attempted_calls": 2,
+            "reported_calls": 2,
+            "response_models": [
+              "jev-1.13.0",
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.000053928,
+          "tool_call": null,
+          "clarification_reason": null
+        },
+        {
+          "request_id": "e22a9322-59d0-4aa8-a8c5-99fa69dad4e3",
+          "router": "jev",
+          "model": "jev-latest",
+          "confidence_source": "typesafe_distribution",
+          "selected_domain": "github",
+          "domain_probabilities": {
+            "browser": 0.0,
+            "calendar": 0.0,
+            "github": 0.66,
+            "other": 0.0,
+            "none": 0.34,
+            "files": 0.0
+          },
+          "domain_confidence": 0.59,
+          "selected_tool": null,
+          "tool_probabilities": {},
+          "tool_confidence": null,
+          "needs_clarification_probability": 0.09,
+          "mutation_probability": 0.11,
+          "high_consequence_probability": 0.08,
+          "outcome": "fallback",
+          "fallback_reason": "low_domain_confidence",
+          "failure_stage": null,
+          "requires_approval": false,
+          "latency_ms": 181.449708994478,
+          "usage": {
+            "input_tokens": 820,
+            "output_tokens": 118,
+            "complete": true,
+            "attempted_calls": 1,
+            "reported_calls": 1,
+            "response_models": [
+              "jev-1.13.0"
+            ]
+          },
+          "estimated_cost_usd": 0.00003444,
+          "tool_call": null,
+          "clarification_reason": null
+        }
+      ]
+    }
+  ],
+  "notes": "Both arms use the same OpenRouter model and synthetic read-only tool results. Jev restricts the next model call to one tool; fallback exposes all. Success requires the expected calls and literal answer facts; it is not a semantic judge. Costs are estimates when prices are configured."
+}

@@ -1,13 +1,14 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from jev_router.baseline_router import (
+from jev_router.config import Settings
+from jev_router.lab.baseline_router import (
     BaselineDomainOutput,
     BaselineRouter,
     BaselineToolOutput,
     output_schema,
 )
-from jev_router.config import Settings
+from jev_router.lab.tool_catalog import CATALOG
 from jev_router.models import RoutingRequest
 from jev_router.questions import DOMAIN_OPTIONS, tool_options
 
@@ -31,7 +32,7 @@ async def test_structured_output_and_shared_state():
         likely_mutation=0,
         high_consequence=0,
     )
-    second = output(BaselineToolOutput, "files_read", tool_options("files"))
+    second = output(BaselineToolOutput, "files_read", tool_options("files", CATALOG))
     client.chat.completions.create.side_effect = [
         SimpleNamespace(
             choices=[
@@ -58,7 +59,7 @@ async def test_structured_output_and_shared_state():
         BaselineDomainOutput, DOMAIN_OPTIONS
     )
     assert calls[1].kwargs["response_format"]["json_schema"]["schema"] == output_schema(
-        BaselineToolOutput, tool_options("files")
+        BaselineToolOutput, tool_options("files", CATALOG)
     )
     assert "github_search_code" not in str(calls[1].kwargs["messages"])
     assert calls[0].kwargs["extra_body"]["provider"]["require_parameters"] is True
@@ -98,7 +99,7 @@ def test_openrouter_configuration_from_environment(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
     monkeypatch.setenv("BASELINE_MODEL", "provider/configured-model")
     factory = Mock()
-    monkeypatch.setattr("jev_router.baseline_router.AsyncOpenAI", factory)
+    monkeypatch.setattr("jev_router.lab.baseline_router.AsyncOpenAI", factory)
     router = BaselineRouter(Settings(_env_file=None))
     assert router.provider.configuration_error is None
     router.provider.get_client()

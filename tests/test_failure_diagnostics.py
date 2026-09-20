@@ -6,8 +6,8 @@ import httpx
 import pytest
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
-from jev_router.baseline_router import BaselineRouter, BaselineToolOutput, output_schema
 from jev_router.config import Settings
+from jev_router.lab.baseline_router import BaselineRouter, BaselineToolOutput, output_schema
 from jev_router.models import RoutingRequest
 from jev_router.questions import DOMAIN_OPTIONS
 

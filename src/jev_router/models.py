@@ -10,7 +10,7 @@ from jev_router.errors import RoutingFailure
 
 Probability = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
 Domain = Literal["github", "browser", "files", "calendar", "none", "other"]
-ToolDomain = Literal["github", "browser", "files", "calendar"]
+ToolDomain = str
 Outcome = Literal["route", "no_tool", "clarify", "fallback"]
 ClarificationReason = Literal["model_uncertainty", "missing_required_argument"]
 
@@ -99,7 +99,7 @@ class RoutingDecision(Model):
     router: str
     model: str
     confidence_source: str = "unknown"
-    selected_domain: Domain | None = None
+    selected_domain: str | None = None
     domain_probabilities: dict[str, Probability] = Field(default_factory=dict)
     domain_confidence: Probability | None = None
     selected_tool: str | None = None

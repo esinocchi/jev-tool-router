@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="312" height="352" viewBox="0 0 312 352" role="img" aria-labelledby="title description">
+  <title id="title">Flat tools versus Jev filtering in one mock-agent run</title>
+  <desc id="description">Both agents completed ten of ten synthetic tasks using the same Luna model. Mean latency was 2.575 seconds with all tools and 3.071 seconds with Jev filtering. Estimated cost was 0.002979 and 0.002786 dollars.</desc>
+  <rect x="0.5" y="0.5" width="311" height="351" rx="4" fill="#fbfaf8" stroke="#dedbd6"/>
+  <text x="18" y="30" fill="#706f6c" font-family="Geist Mono, ui-monospace, monospace" font-size="10" letter-spacing="1">EXPERIMENT 02 / AGENT LOOP</text>
+  <text x="18" y="57" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="17" font-weight="600">Jev as a prefilter</text>
+  <text x="18" y="78" fill="#706f6c" font-family="Geist, system-ui, sans-serif" font-size="11">10 tasks · 16 tools · both completed 10/10</text>
+  <line x1="18" y1="94.5" x2="294" y2="94.5" stroke="#dedbd6"/>
+
+  <text x="18" y="117" fill="#706f6c" font-family="Geist Mono, ui-monospace, monospace" font-size="10" letter-spacing="0.7">MEAN TASK LATENCY</text>
+  <text x="18" y="142" fill="#706f6c" font-family="Geist, system-ui, sans-serif" font-size="12">Flat tools</text>
+  <text x="165" y="142" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="12">Jev filter</text>
+  <text x="18" y="161" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">2.575 s</text>
+  <text x="165" y="161" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">3.071 s</text>
+  <rect x="18" y="174" width="105" height="7" fill="#a8a5a0"/>
+  <rect x="165" y="174" width="125" height="7" fill="#1a1a1a"/>
+  <line x1="18" y1="197.5" x2="294" y2="197.5" stroke="#dedbd6"/>
+
+  <text x="18" y="220" fill="#706f6c" font-family="Geist Mono, ui-monospace, monospace" font-size="10" letter-spacing="0.7">ESTIMATED COST / 10 TASKS</text>
+  <text x="18" y="245" fill="#706f6c" font-family="Geist, system-ui, sans-serif" font-size="12">Flat tools</text>
+  <text x="165" y="245" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="12">Jev filter</text>
+  <text x="18" y="264" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">$0.002979</text>
+  <text x="165" y="264" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">$0.002786</text>
+  <rect x="18" y="277" width="125" height="7" fill="#a8a5a0"/>
+  <rect x="165" y="277" width="117" height="7" fill="#1a1a1a"/>
+  <line x1="18" y1="300.5" x2="294" y2="300.5" stroke="#dedbd6"/>
+  <text x="18" y="322" fill="#706f6c" font-family="Geist, system-ui, sans-serif" font-size="11">One run · configured prices, not invoices</text>
+  <text x="18" y="339" fill="#706f6c" font-family="Geist, system-ui, sans-serif" font-size="11">Routing and agent latency included</text>
+</svg>
