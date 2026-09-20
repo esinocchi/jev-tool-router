@@ -27,14 +27,11 @@ def test_distribution_must_match_all_options():
         judgment.check_options({"a": "A", "b": "B"})
 
 
-def test_duplicate_baseline_labels_rejected():
-    output = BaselineToolOutput(
-        selected="a",
-        confidence=1,
-        probabilities=[{"label": "a", "probability": 1}, {"label": "a", "probability": 0}],
-    )
-    with pytest.raises(ValueError):
-        output.judgment()
+def test_legacy_probability_lists_rejected():
+    with pytest.raises(ValidationError):
+        BaselineToolOutput(
+            selected="a", confidence=1, probabilities=[{"label": "a", "probability": 1}]
+        )
 
 
 def test_cost_uses_both_stages_and_partial_usage_is_unknown():

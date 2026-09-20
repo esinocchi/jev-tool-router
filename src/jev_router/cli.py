@@ -17,6 +17,7 @@ from jev_router.jev_router import JevRouter
 from jev_router.logging import configure_logging, log_decision
 from jev_router.models import MockResult, Model, RoutingDecision, RoutingRequest
 from jev_router.tool_catalog import execute_mock
+from jev_router.tool_preparation import prepare_tool_call
 
 app = typer.Typer(
     no_args_is_help=True, help="Compare hierarchical tool routers. All tool execution is mocked."
@@ -109,8 +110,12 @@ def route(
         attempted = (approve or execute) and decision.outcome == "route"
         if attempted:
             try:
-                result.execution = execute_mock(decision, approved=approve)
-                result.execution_status = "simulated"
+                prepared = decision.tool_call or prepare_tool_call(decision, state)
+                if prepared.status == "needs_clarification":
+                    result.execution_status = "input_required"
+                else:
+                    result.execution = execute_mock(decision, prepared=prepared, approved=approve)
+                    result.execution_status = "simulated"
             except PermissionError:
                 result.execution_status = "approval_required"
             except ValueError:
@@ -186,8 +191,13 @@ def evaluate_command(
         RouterSelection, typer.Option(help="auto includes baseline when configured")
     ] = RouterSelection.auto,
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    diagnostic_stage_two: Annotated[
+        bool,
+        typer.Option("--diagnostic-stage-two", help="Run Stage 2 after a model clarification"),
+    ] = False,
 ) -> None:
     settings = settings_from_environment()
+    settings = settings.model_copy(update={"diagnostic_stage_two": diagnostic_stage_two})
     try:
         cases = load_cases(dataset)
     except (OSError, ValueError):

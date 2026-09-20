@@ -21,7 +21,7 @@ def test_route_without_key_json(monkeypatch, tmp_path):
 
 def test_compare_without_baseline_configuration(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    for key in ("TYPESAFE_API_KEY", "OPENAI_API_KEY", "BASELINE_MODEL"):
+    for key in ("TYPESAFE_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "BASELINE_MODEL"):
         monkeypatch.delenv(key, raising=False)
     result = runner.invoke(app, ["compare", "Check calendar", "--json"])
     assert result.exit_code == 0, result.output

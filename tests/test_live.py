@@ -26,7 +26,7 @@ async def test_live_provider_contract(provider):
         )
     finally:
         await router.aclose()
-    assert result.fallback_reason not in {"timeout", "api_or_invalid_response"}
+    assert result.failure_stage is None
     assert result.domain_probabilities
     assert result.usage.attempted_calls >= 1
     # Confidence and semantic accuracy are evaluated separately; this test checks the contract.

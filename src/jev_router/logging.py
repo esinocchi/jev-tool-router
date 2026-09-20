@@ -40,7 +40,8 @@ def log_decision(
     *,
     mock_execution_attempted: bool = False,
 ) -> None:
-    event = decision.model_dump(mode="json")
+    # Prepared fields can contain request-derived data, so logging keeps only routing metadata.
+    event = decision.model_dump(mode="json", exclude={"tool_call"})
     event.update(
         request_id=request.request_id,
         request_sha256=request_hash(request.user_request),

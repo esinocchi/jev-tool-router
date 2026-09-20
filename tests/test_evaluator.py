@@ -64,6 +64,8 @@ def test_metrics_have_explicit_denominators():
     metrics = calculate_metrics(rows, Settings(_env_file=None))
     assert metrics.domain_accuracy == 1
     assert metrics.exact_tool_accuracy == 0.5
+    assert metrics.tool_fit_accuracy == 0.5
+    assert metrics.execution_readiness_accuracy == 1
     assert metrics.tool_case_count == 2
     assert metrics.top_two_tool_accuracy == 1
     assert metrics.clarification.precision == metrics.clarification.recall == 1

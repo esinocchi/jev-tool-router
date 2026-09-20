@@ -1,5 +1,7 @@
 """TypeSafe-specific translation; no security decisions are delegated to the SDK."""
 
+from collections.abc import Mapping
+
 from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, RetryPolicy, SystemOneResponse
 
 from jev_router.config import Settings
@@ -12,6 +14,7 @@ from jev_router.questions import (
     tool_options,
 )
 from jev_router.routing_service import HierarchicalRouter
+from jev_router.tool_catalog import CATALOG, ToolDefinition
 
 
 def domain_questions() -> dict[str, Choice | Noul]:
@@ -21,19 +24,27 @@ def domain_questions() -> dict[str, Choice | Noul]:
     }
 
 
-def tool_questions(domain: str) -> dict[str, Choice]:
-    return {"tool": Choice(instructions=TOOL_INSTRUCTIONS, criteria=tool_options(domain))}
+def tool_questions(
+    domain: str, catalog: Mapping[str, ToolDefinition] = CATALOG
+) -> dict[str, Choice]:
+    return {"tool": Choice(instructions=TOOL_INSTRUCTIONS, criteria=tool_options(domain, catalog))}
 
 
 class JevProvider:
     name = "jev"
     confidence_source = "typesafe_distribution"
 
-    def __init__(self, settings: Settings, client: AsyncTypeSafeClient | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        client: AsyncTypeSafeClient | None = None,
+        catalog: Mapping[str, ToolDefinition] = CATALOG,
+    ):
         self.settings = settings
         self.model = settings.jev_model
         self.client = client
         self.owns_client = client is None
+        self.catalog = catalog
         self.configuration_error = (
             "missing_typesafe_api_key"
             if client is None
@@ -84,7 +95,7 @@ class JevProvider:
     async def judge_tool(
         self, request: RoutingRequest, domain: str, usage: TokenUsage
     ) -> ChoiceJudgment:
-        questions: dict[str, Choice | Noul] = dict(tool_questions(domain))
+        questions: dict[str, Choice | Noul] = dict(tool_questions(domain, self.catalog))
         response = await self._call(request, questions, usage)
         answer = response.choices["tool"]
         return ChoiceJudgment(
@@ -99,8 +110,16 @@ class JevProvider:
 class JevRouter(HierarchicalRouter):
     provider: JevProvider
 
-    def __init__(self, settings: Settings, client: AsyncTypeSafeClient | None = None):
-        super().__init__(JevProvider(settings, client), settings)
+    def __init__(
+        self,
+        settings: Settings,
+        client: AsyncTypeSafeClient | None = None,
+        tools: list[ToolDefinition] | None = None,
+    ):
+        catalog = CATALOG if tools is None else {tool.name: tool for tool in tools}
+        if not catalog or (tools is not None and len(catalog) != len(tools)):
+            raise ValueError("Tools must be nonempty and have unique names")
+        super().__init__(JevProvider(settings, client, catalog), settings, catalog)
 
     async def aclose(self) -> None:
         await self.provider.aclose()

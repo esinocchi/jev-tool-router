@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True)
 
     typesafe_api_key: SecretStr | None = None
-    openai_api_key: SecretStr | None = None
+    openrouter_api_key: SecretStr | None = None
     baseline_model: str = ""
     jev_model: str = "jev-latest"
     jev_domain_confidence_threshold: Probability = 0.65
@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     jev_routing_timeout_ms: int = Field(default=1500, gt=0)
     baseline_routing_timeout_ms: int = Field(default=30000, gt=0)
     log_full_requests: bool = False
+    diagnostic_stage_two: bool = False
     log_request_preview_chars: int = Field(default=0, ge=0, le=200)
     jev_input_price_per_million: Price | None = None
     jev_output_price_per_million: Price | None = None

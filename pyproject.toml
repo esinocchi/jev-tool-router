@@ -1,7 +1,7 @@
 [project]
 name = "jev-tool-router"
 version = "0.1.0"
-description = "Local experiment comparing Jev and OpenAI hierarchical tool routing"
+description = "Typed, Jev-first routing middleware for application-owned agent tools"
 requires-python = ">=3.11"
 dependencies = [
   "typesafe-sdk>=0.6,<0.7",

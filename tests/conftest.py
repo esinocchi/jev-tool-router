@@ -12,7 +12,7 @@ def offline_and_clean_environment(request, monkeypatch):
     import os
 
     for key in list(os.environ):
-        if key.startswith(("JEV_", "BASELINE_", "TYPESAFE_", "OPENAI_", "LOG_")):
+        if key.startswith(("JEV_", "BASELINE_", "TYPESAFE_", "OPENAI_", "OPENROUTER_", "LOG_")):
             monkeypatch.delenv(key, raising=False)
 
     # Prevent accidental live API requests by any unit test.

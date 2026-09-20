@@ -1,11 +1,20 @@
 """Trusted local catalog and inert execution. No service clients belong here."""
 
+import re
+from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Literal
 
 from pydantic import ConfigDict, JsonValue
 
-from jev_router.models import MockArguments, MockResult, Model, RoutingDecision, ToolDomain
+from jev_router.models import (
+    MockArguments,
+    MockResult,
+    Model,
+    RoutingDecision,
+    ToolCallPreparation,
+    ToolDomain,
+)
 
 
 class ToolDefinition(Model):
@@ -15,6 +24,7 @@ class ToolDefinition(Model):
     description: str
     read_only: bool
     risk: Literal["low", "medium", "high"]
+    required_arguments: tuple[str, ...]
     input_schema: dict[str, JsonValue]
     output_schema: dict[str, JsonValue]
 
@@ -25,6 +35,7 @@ def tool(
     description: str,
     read_only: bool = True,
     risk: Literal["low", "medium", "high"] = "low",
+    required_arguments: tuple[str, ...] = (),
 ) -> ToolDefinition:
     return ToolDefinition(
         name=name,
@@ -32,18 +43,30 @@ def tool(
         description=description,
         read_only=read_only,
         risk=risk,
+        required_arguments=required_arguments,
         input_schema=MockArguments.model_json_schema(),
         output_schema=MockResult.model_json_schema(),
     )
 
 
 _TOOLS = (
-    tool("github_search_code", "github", "Search source code across GitHub repositories by query."),
-    tool("github_read_file", "github", "Read a known file path in a specified GitHub repository."),
+    tool(
+        "github_search_code",
+        "github",
+        "Search source code across GitHub repositories by query.",
+        required_arguments=("query",),
+    ),
+    tool(
+        "github_read_file",
+        "github",
+        "Read a known file path in a specified GitHub repository.",
+        required_arguments=("repository", "path"),
+    ),
     tool(
         "github_search_issues",
         "github",
         "Find or inspect GitHub issues by query, status, or number.",
+        required_arguments=("query",),
     ),
     tool(
         "github_create_issue",
@@ -51,15 +74,27 @@ _TOOLS = (
         "Create a new issue in a specified GitHub repository.",
         False,
         "high",
+        ("repository", "title"),
     ),
-    tool("browser_search_web", "browser", "Search the public web for information or websites."),
-    tool("browser_open_page", "browser", "Open and read a specified web page URL."),
+    tool(
+        "browser_search_web",
+        "browser",
+        "Search the public web for information or websites.",
+        required_arguments=("query",),
+    ),
+    tool(
+        "browser_open_page",
+        "browser",
+        "Open and read a specified web page URL.",
+        required_arguments=("url",),
+    ),
     tool(
         "browser_click",
         "browser",
         "Click a specified element on the current web page; may change state.",
         False,
         "medium",
+        ("element",),
     ),
     tool(
         "browser_submit_form",
@@ -67,26 +102,40 @@ _TOOLS = (
         "Submit a web form with supplied information.",
         False,
         "high",
+        ("url", "form_data"),
     ),
-    tool("files_search", "files", "Find local files by name, path pattern, or content query."),
-    tool("files_read", "files", "Read contents of a known local file path."),
+    tool(
+        "files_search",
+        "files",
+        "Find local files by name, path pattern, or content query.",
+        required_arguments=("query",),
+    ),
+    tool(
+        "files_read",
+        "files",
+        "Read contents of a known local file path.",
+        required_arguments=("path",),
+    ),
     tool(
         "files_write",
         "files",
         "Create or replace contents at a specified local file path.",
         False,
         "medium",
+        ("path", "content"),
     ),
-    tool("files_delete", "files", "Delete a specified local file.", False, "high"),
+    tool("files_delete", "files", "Delete a specified local file.", False, "high", ("path",)),
     tool(
         "calendar_search_events",
         "calendar",
         "Find or read calendar events by title, date, or participant.",
+        required_arguments=("query",),
     ),
     tool(
         "calendar_check_availability",
         "calendar",
         "Check free and busy time over a specified interval.",
+        required_arguments=("time_window",),
     ),
     tool(
         "calendar_create_event",
@@ -94,6 +143,7 @@ _TOOLS = (
         "Create a calendar event with title, time, and participants.",
         False,
         "high",
+        ("title", "time_window"),
     ),
     tool(
         "calendar_delete_event",
@@ -101,6 +151,7 @@ _TOOLS = (
         "Delete or cancel an identified calendar event.",
         False,
         "high",
+        ("event_id",),
     ),
 )
 CATALOG = MappingProxyType({t.name: t for t in _TOOLS})
@@ -116,24 +167,42 @@ ALWAYS_APPROVAL = frozenset(
         "calendar_delete_event",
     }
 )
+SAFE_URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+SAFE_PATH = re.compile(r"/[A-Za-z0-9._/-]+")
 
 
-def tool_requires_approval(name: str) -> bool:
-    definition = CATALOG[name]
+def tool_requires_approval(name: str, catalog: Mapping[str, ToolDefinition] = CATALOG) -> bool:
+    definition = catalog[name]
     return name in ALWAYS_APPROVAL or not definition.read_only or definition.risk == "high"
 
 
-def execute_mock(decision: RoutingDecision, *, approved: bool = False) -> MockResult:
+def execute_mock(
+    decision: RoutingDecision,
+    *,
+    prepared: ToolCallPreparation | None = None,
+    approved: bool = False,
+) -> MockResult:
     if decision.outcome != "route" or decision.selected_tool not in CATALOG:
         raise ValueError("Only a valid routed catalog tool can be simulated")
     assert decision.selected_tool is not None
     definition = CATALOG[decision.selected_tool]
     if definition.domain != decision.selected_domain:
         raise ValueError("Tool and domain mismatch")
+    if prepared is None or prepared.tool != definition.name or prepared.status != "ready":
+        raise ValueError("A ready prepared tool call is required")
+    if set(prepared.arguments) != set(definition.required_arguments):
+        raise ValueError("Prepared arguments do not match the tool schema")
+    if any(not value.strip() for value in prepared.arguments.values()):
+        raise ValueError("Prepared arguments must not be empty")
+    if "url" in prepared.arguments and not SAFE_URL.fullmatch(prepared.arguments["url"]):
+        raise ValueError("Prepared URL is invalid")
+    if "path" in prepared.arguments and not SAFE_PATH.fullmatch(prepared.arguments["path"]):
+        raise ValueError("Prepared file path is invalid")
     if (
         decision.requires_approval or tool_requires_approval(definition.name)
     ) and approved is not True:
         raise PermissionError("Explicit approved=True is required")
     return MockResult(
-        tool=definition.name, arguments=MockArguments(target=f"mock://{definition.name}")
+        tool=definition.name,
+        arguments=MockArguments(target=f"mock://{definition.name}", fields=prepared.arguments),
     )

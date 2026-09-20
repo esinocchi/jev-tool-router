@@ -70,20 +70,22 @@ async def test_typesafe_wire_contract_and_no_retry():
     }
 
 
-async def test_openai_wire_structured_output_contract():
+async def test_openrouter_wire_structured_output_contract():
     def handler(request):
-        assert request.url.path == "/v1/responses"
+        assert request.url.host == "openrouter.ai"
+        assert request.url.path == "/api/v1/chat/completions"
         body = json.loads(request.content)
-        assert body["text"]["format"]["type"] == "json_schema"
-        assert body["text"]["format"]["strict"] is True
-        assert body["store"] is False
+        assert body["model"] == "provider/configured-test"
+        assert body["response_format"]["type"] == "json_schema"
+        assert body["response_format"]["json_schema"]["strict"] is True
+        assert body["provider"] == {"require_parameters": True, "allow_fallbacks": False}
         output = {
             "selected": "none",
             "confidence": 0.95,
-            "probabilities": [
-                {"label": label, "probability": int(label == "none")}
+            "probabilities": {
+                label: int(label == "none")
                 for label in ("github", "browser", "files", "calendar", "none", "other")
-            ],
+            },
             "needs_clarification": 0,
             "likely_mutation": 0,
             "high_consequence": 0,
@@ -91,41 +93,34 @@ async def test_openai_wire_structured_output_contract():
         return httpx.Response(
             200,
             json={
-                "id": "resp_mock",
-                "object": "response",
-                "created_at": 1,
-                "model": "configured-test",
-                "status": "completed",
-                "error": None,
-                "incomplete_details": None,
-                "output": [
+                "id": "chatcmpl_mock",
+                "object": "chat.completion",
+                "created": 1,
+                "model": "provider/configured-test",
+                "choices": [
                     {
-                        "id": "msg_mock",
-                        "type": "message",
-                        "role": "assistant",
-                        "status": "completed",
-                        "content": [
-                            {"type": "output_text", "text": json.dumps(output), "annotations": []}
-                        ],
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "role": "assistant",
+                            "content": json.dumps(output),
+                            "refusal": None,
+                        },
                     }
                 ],
-                "usage": {
-                    "input_tokens": 27,
-                    "output_tokens": 12,
-                    "total_tokens": 39,
-                    "input_tokens_details": {"cached_tokens": 0},
-                    "output_tokens_details": {"reasoning_tokens": 0},
-                },
+                "usage": {"prompt_tokens": 27, "completion_tokens": 12, "total_tokens": 39},
             },
         )
 
     async with AsyncOpenAI(
         api_key="fake-key",
+        base_url="https://openrouter.ai/api/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         max_retries=0,
     ) as client:
         result = await BaselineRouter(
-            Settings(_env_file=None, baseline_model="configured-test"), client
+            Settings(_env_file=None, baseline_model="provider/configured-test"),
+            client,
         ).route(RoutingRequest(user_request="What is 2+2?"))
     assert result.outcome == "no_tool"
     assert result.domain_confidence == 0.95

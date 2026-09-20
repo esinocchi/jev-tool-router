@@ -4,11 +4,15 @@ from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic_core import PydanticCustomError
+
+from jev_router.errors import RoutingFailure
 
 Probability = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
 Domain = Literal["github", "browser", "files", "calendar", "none", "other"]
 ToolDomain = Literal["github", "browser", "files", "calendar"]
 Outcome = Literal["route", "no_tool", "clarify", "fallback"]
+ClarificationReason = Literal["model_uncertainty", "missing_required_argument"]
 
 
 class Model(BaseModel):
@@ -32,16 +36,24 @@ class ChoiceJudgment(Model):
     @model_validator(mode="after")
     def valid_distribution(self) -> "ChoiceJudgment":
         if self.selected not in self.probabilities:
-            raise ValueError("Selected label is absent from distribution")
+            raise PydanticCustomError(
+                "selected_label_missing", "Selected label is absent from distribution"
+            )
         if abs(sum(self.probabilities.values()) - 1) > 0.02:
-            raise ValueError("Probabilities must sum to one within rounding tolerance")
+            raise PydanticCustomError(
+                "invalid_probability_sum", "Probabilities must sum to one within rounding tolerance"
+            )
         if self.probabilities[self.selected] + 1e-6 < max(self.probabilities.values()):
-            raise ValueError("Selected label must have maximum probability")
+            raise PydanticCustomError(
+                "selected_label_not_maximum", "Selected label must have maximum probability"
+            )
         return self
 
     def check_options(self, options: dict[str, str]) -> None:
-        if set(self.probabilities) != set(options):
-            raise ValueError("Distribution must contain exactly the offered options")
+        if set(self.probabilities) - set(options):
+            raise RoutingFailure("unknown_probability_labels")
+        if set(options) - set(self.probabilities):
+            raise RoutingFailure("missing_probability_labels")
 
 
 class DomainJudgment(Model):
@@ -72,6 +84,16 @@ class TokenUsage(Model):
         self.complete = self.reported_calls == self.attempted_calls
 
 
+class ToolCallPreparation(Model):
+    """A locally derived, schema-shaped mock call. This is not model-generated input."""
+
+    tool: str
+    status: Literal["ready", "needs_clarification"]
+    arguments: dict[str, str] = Field(default_factory=dict)
+    missing_fields: list[str] = Field(default_factory=list)
+    clarification: str | None = None
+
+
 class RoutingDecision(Model):
     request_id: str = ""
     router: str
@@ -88,14 +110,18 @@ class RoutingDecision(Model):
     high_consequence_probability: Probability | None = None
     outcome: Outcome = "fallback"
     fallback_reason: str | None = None
+    failure_stage: Literal["domain", "tool"] | None = None
     requires_approval: bool = False
     latency_ms: float = Field(default=0, ge=0)
     usage: TokenUsage = Field(default_factory=TokenUsage)
     estimated_cost_usd: float | None = None
+    tool_call: ToolCallPreparation | None = None
+    clarification_reason: ClarificationReason | None = None
 
 
 class MockArguments(Model):
     target: str = "mock://placeholder"
+    fields: dict[str, str] = Field(default_factory=dict)
     payload: str = "placeholder; no user content or credentials"
 
 

@@ -1,7 +1,13 @@
 import pytest
 
 from jev_router.config import Settings
-from jev_router.models import ChoiceJudgment, DomainJudgment, RoutingDecision, RoutingRequest
+from jev_router.models import (
+    ChoiceJudgment,
+    DomainJudgment,
+    RoutingDecision,
+    RoutingRequest,
+    ToolCallPreparation,
+)
 from jev_router.routing_service import HierarchicalRouter
 from jev_router.tool_catalog import CATALOG, execute_mock
 
@@ -99,12 +105,26 @@ def test_executor_uses_catalog_even_with_forged_decision(tool):
         selected_tool=tool,
         requires_approval=False,
     )
+    prepared = ToolCallPreparation(
+        tool=tool,
+        status="ready",
+        arguments={
+            field: (
+                "https://example.test"
+                if field == "url"
+                else "/tmp/value"
+                if field == "path"
+                else "value"
+            )
+            for field in definition.required_arguments
+        },
+    )
     if not definition.read_only:
         with pytest.raises(PermissionError):
-            execute_mock(decision)
+            execute_mock(decision, prepared=prepared)
     else:
-        assert execute_mock(decision).tool == tool
-    assert execute_mock(decision, approved=True).tool == tool
+        assert execute_mock(decision, prepared=prepared).tool == tool
+    assert execute_mock(decision, prepared=prepared, approved=True).tool == tool
 
 
 def test_catalog():
@@ -138,8 +158,9 @@ def test_model_risk_can_block_read_only_execution():
         selected_tool="files_read",
         requires_approval=True,
     )
+    prepared = ToolCallPreparation(tool="files_read", status="ready", arguments={"path": "/tmp/a"})
     with pytest.raises(PermissionError):
-        execute_mock(decision)
+        execute_mock(decision, prepared=prepared)
 
 
 def test_mismatched_domain_is_not_executable():
@@ -152,3 +173,24 @@ def test_mismatched_domain_is_not_executable():
     )
     with pytest.raises(ValueError):
         execute_mock(decision, approved=True)
+
+
+async def test_routed_tool_has_a_ready_prepared_call():
+    result = await HierarchicalRouter(Provider(), Settings(_env_file=None)).route(
+        RoutingRequest(user_request="Find issues mentioning authentication")
+    )
+
+    assert result.outcome == "route"
+    assert result.tool_call is not None
+    assert result.tool_call.status == "ready"
+    assert result.tool_call.arguments == {"query": "Find issues mentioning authentication"}
+
+
+async def test_missing_arguments_turn_an_otherwise_routed_tool_into_clarification():
+    result = await HierarchicalRouter(
+        Provider(domain="browser", tool="browser_open_page"), Settings(_env_file=None)
+    ).route(RoutingRequest(user_request="Open that website"))
+
+    assert result.outcome == "clarify"
+    assert result.tool_call is not None
+    assert result.tool_call.missing_fields == ["url"]

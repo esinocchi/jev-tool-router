@@ -1,6 +1,8 @@
 """Shared complete instructions and options, independent of either SDK."""
 
-from jev_router.tool_catalog import CATALOG
+from collections.abc import Mapping
+
+from jev_router.tool_catalog import CATALOG, ToolDefinition
 
 DOMAIN_OPTIONS = {
     "github": "Repository code, files, commits, issues, and pull requests.",
@@ -37,8 +39,8 @@ TOOL_INSTRUCTIONS = (
 )
 
 
-def tool_options(domain: str) -> dict[str, str]:
+def tool_options(domain: str, catalog: Mapping[str, ToolDefinition] = CATALOG) -> dict[str, str]:
     return {
-        **{t.name: t.description for t in CATALOG.values() if t.domain == domain},
+        **{t.name: t.description for t in catalog.values() if t.domain == domain},
         "none_of_the_above": "No single offered tool can fulfill this request.",
     }

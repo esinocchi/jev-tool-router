@@ -1,8 +1,57 @@
 # jev-tool-router
 
-A local experiment testing whether TypeSafe AI's Jev can route requests to relevant tools faster and more cheaply than a conventional OpenAI LLM router, without reducing routing accuracy. **No benchmark result is claimed yet.** Unit tests validate the harness, not either model's semantic accuracy.
+A local experiment testing whether TypeSafe AI's Jev can route requests to relevant tools faster and more cheaply than a conventional LLM router served through OpenRouter, without reducing routing accuracy. **No benchmark result is claimed yet.** Unit tests validate the harness, not either model's semantic accuracy.
 
 There are 16 mock tools across GitHub, browser, local files, and calendar. Nothing connects to those services, reads your files, opens websites, or changes a calendar. Routing commands send the request and supplied context to the selected model API when configured; those calls may incur charges. The executor only returns a typed description of a hypothetical invocation.
+
+## Use it in an agent
+
+`JevToolRouter` is the small, route-only API for an application that already owns its
+tools. Describe trusted tool metadata, give the router a request, and use its typed
+`RoutingDecision` to decide whether your application should clarify, continue, or
+apply its own authorization and execution logic. The router never imports an MCP
+client, calls a tool, or turns a model signal into approval.
+
+```python
+import asyncio
+
+from jev_router import JevToolRouter, Tool
+from jev_router.config import Settings
+from jev_router.models import RoutingRequest
+
+
+async def main() -> None:
+    tools = [
+        Tool.from_mcp_schema(
+            {
+                "name": "search_company_docs",
+                "description": "Search company documentation by query.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+            },
+            domain="files",
+        )
+    ]
+    router = JevToolRouter(tools, Settings())
+    try:
+        decision = await router.route(RoutingRequest(user_request="Find our onboarding guide"))
+        print(decision.model_dump(mode="json"))
+    finally:
+        await router.aclose()
+
+
+asyncio.run(main())
+```
+
+The public API currently routes tools in the four supplied domains: `github`,
+`browser`, `files`, and `calendar`. `Tool.from_mcp_schema` accepts standard MCP-style
+`name`, `description`, and `inputSchema` metadata; `domain`, read-only status, and risk
+are supplied by trusted application code. Do not let a model or remote tool registry set
+those safety labels. Complex arguments remain outside this router: a primary agent can
+generate them after narrowing, then your application must validate and authorize them.
 
 ## Installation
 
@@ -23,7 +72,14 @@ TYPESAFE_API_KEY=your-key-here
 
 The default Jev alias is `jev-latest`; optionally set `JEV_MODEL` to an available fixed version for reproducibility. Record the actual response versions from `usage.response_models` in reports. Available models and access may change: consult [TypeSafe models](https://docs.typesafe.ai/models).
 
-The OpenAI baseline is optional. Set **both** `OPENAI_API_KEY` and `BASELINE_MODEL` to enable it. No OpenAI model is selected for you. Choose an account-accessible model supporting the Responses API and Structured Outputs using the [official model catalog](https://developers.openai.com/api/docs/models), [structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs), and [model selection guide](https://developers.openai.com/api/docs/guides/model-selection). Prefer a fixed snapshot where offered; use the same model throughout a comparison. The OpenAI SDK is installed but no OpenAI client is created for Jev-only routing.
+The OpenRouter baseline is optional. Get a key from [OpenRouter API keys](https://openrouter.ai/settings/keys), then set **both** `OPENROUTER_API_KEY` and `BASELINE_MODEL` in `.env`:
+
+```dotenv
+OPENROUTER_API_KEY=your-key-here
+BASELINE_MODEL=provider/model-id
+```
+
+`provider/model-id` is a placeholder: use the exact model ID from the [OpenRouter model catalog](https://openrouter.ai/models), choosing a model and endpoint that support [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs). There is no default model. The official OpenAI Python SDK calls OpenRouter's compatible `https://openrouter.ai/api/v1/chat/completions` endpoint; an OpenAI API key is not used. Provider preferences require support for the request parameters and disable provider fallbacks. Unsupported models or schemas return a routing fallback. Use the same model ID throughout comparisons. Jev-only routing does not create an OpenRouter client.
 
 ## Commands
 
@@ -45,7 +101,7 @@ uv run jev-router compare "Check whether I am free Friday afternoon" \
 uv run jev-router compare "Read /tmp/report.txt" --json
 ```
 
-Comparison displays domain/tool selection, routing and outcome agreement, both confidences and their sources, latency, token usage, and configured estimated cost. Routing agreement is `null` if either router falls back; two API failures are not counted as successful agreement. Compare never executes tools. Missing OpenAI configuration produces a readable fallback and leaves Jev usable.
+Comparison displays domain/tool selection, routing and outcome agreement, both confidences and their sources, latency, token usage, and configured estimated cost. Routing agreement is `null` if either router falls back; two API failures are not counted as successful agreement. Compare never executes tools. Missing OpenRouter configuration produces a readable fallback and leaves Jev usable.
 
 `--context` supplies only necessary context, identically to both providers; it does not automatically read conversation history. JSON results go to stdout and structured logs go to stderr. Expected provider failures are represented by a fallback decision with exit status 0; inspect `outcome` in automation. Invalid CLI/configuration/dataset inputs use a nonzero exit status without printing sensitive validation values.
 
@@ -53,7 +109,7 @@ Comparison displays domain/tool selection, routing and outcome agreement, both c
 
 ```text
 Typed RoutingRequest
-  → Jev or OpenAI judgment adapter
+  → Jev or OpenRouter judgment adapter
   → stage 1: domain Choice + clarification/mutation/consequence judgments
   → shared policy: clarify / fallback / no_tool / continue
   → stage 2: exact tool among only that domain + none_of_the_above
@@ -65,14 +121,14 @@ Typed RoutingRequest
 - `questions.py`: shared complete instructions and options.
 - `interfaces.py`: `Router` and `JudgmentProvider` protocols.
 - `jev_router.py`: TypeSafe Choice/Noul construction and SDK response translation.
-- `baseline_router.py`: OpenAI Pydantic Structured Outputs and response translation.
+- `baseline_router.py`: OpenRouter JSON Schema output, Pydantic validation, and response translation.
 - `routing_service.py`: provider-neutral two-stage orchestration and policy.
 - `tool_catalog.py`: stable tool names, descriptions, risk/read-only metadata, mock JSON schemas, and inert execution.
 - `evaluator.py`, `logging.py`, and `cli.py`: evaluation, private structured logging, and commands.
 
 The hierarchy narrows each exact-tool decision to four tools and a rejection option. It trades an extra network round trip and possible domain-stage mistakes for smaller tool-choice inputs and a clearer boundary. It is an experimental choice, not a demonstrated optimization; a flat 16-tool router is a useful later ablation. Both current routers use this hierarchy and the exact same request state, domain options, tool descriptions, and binary questions.
 
-**Jev does not generate arbitrary tool arguments in this prototype.** It chooses from predefined options and judges binary signals. `Score` was checked but is not needed for these categorical and binary decisions. Mock arguments are deterministic `mock://...` targets and inert placeholder text, validated by Pydantic. No user content is copied into executable arguments. A future primary LLM would generate complex arguments after Jev narrows the tool set, followed by schema validation and independent authorization.
+**Jev does not generate arbitrary tool arguments in this prototype.** It chooses from predefined options and judges binary signals. `Score` was checked but is not needed for these categorical and binary decisions. After selection, a local deterministic preparer extracts only explicit simple values such as URLs, absolute paths, quoted text, and `field=value` context. Missing required inputs produce a targeted clarification. The mock executor accepts only a prepared Pydantic-validated call and still never invokes a real service. A future primary LLM could generate complex arguments after Jev narrows the tool set, followed by schema validation and independent authorization.
 
 ## Deterministic routing and approval policy
 
@@ -96,7 +152,7 @@ Every mutating catalog tool always requires `approved=True`, independently of th
 
 ## Evaluation
 
-`evals/routing_cases.json` contains **81 hand-authored cases**, including closely related tools, clear routes, explanations requiring no tool, missing information, mutations, high-consequence actions, misleading tool names, unsupported domains, and unsupported actions within known domains. Cases include explicit independent `expected_mutation` and `expected_high_consequence` labels; neither is inferred from `requires_approval`. For example, a navigation click requires approval conservatively even when it does not request persistent mutation. A case can allow multiple acceptable tools.
+`evals/routing_cases.json` contains **86 hand-authored cases**, including closely related tools, clear routes, explanations requiring no tool, missing information, mutations, high-consequence actions, misleading tool names, unsupported domains, and unsupported actions within known domains. Cases include explicit independent `expected_mutation` and `expected_high_consequence` labels; neither is inferred from `requires_approval`. For example, a navigation click requires approval conservatively even when it does not request persistent mutation. A case can allow multiple acceptable tools.
 
 ```bash
 # Jev plus baseline if baseline credentials/model are configured
@@ -108,7 +164,7 @@ uv run jev-router eval --routers both --json
 uv run jev-router eval --dataset evals/routing_cases.json --output-dir evals/results
 ```
 
-Reports use UTC timestamps under `evals/results/`. Each includes dataset SHA-256, nonsecret threshold/model/price configuration, actual response model versions, per-case decisions, and aggregate metrics. Requests are represented by case IDs and hashes, not their full text. Reports are ignored by git. Evaluation **never calls the mock executor**. With absent credentials, it produces fallback records, useful for checking the CLI but not for benchmarking models.
+Reports use UTC timestamps under `evals/results/`. Schema version 2 records the baseline output format as `closed_probability_object_v2`, so the earlier list-schema experiment remains distinguishable. Each includes dataset SHA-256, nonsecret threshold/model/price configuration, actual response model versions, per-case decisions, and aggregate metrics. Requests are represented by case IDs and hashes, not their full text. Reports are ignored by git. Evaluation **never calls the mock executor**. With absent credentials, it produces fallback records, useful for checking the CLI but not for benchmarking models.
 
 Metric definitions:
 
@@ -116,6 +172,8 @@ Metric definitions:
 | --- | --- |
 | Domain accuracy | Correct selected domain / all cases; missing domains are incorrect. |
 | Exact-tool accuracy | Correct domain and acceptable tool **with route outcome** / cases whose expected outcome is route. Abstention counts as a miss. |
+| Tool-fit accuracy | Correct domain and acceptable tool regardless of whether the request is ready to execute / cases labeled `expected_tool_fit`. This isolates tool relevance from readiness. |
+| Execution-readiness accuracy | Correctly distinguishes requests ready to route from those requiring clarification / all cases. |
 | Top-two tool accuracy | Expected tool in the two highest reported tool probabilities with correct domain / route cases with tool probabilities. Report includes the available-case denominator; this is conditional accuracy, not full-dataset coverage. |
 | Outcome accuracy | Correct route/no_tool/clarify/fallback outcome / all cases. |
 | Overall accuracy | Correct domain and outcome, plus acceptable tool when routing / all cases. |
@@ -132,13 +190,17 @@ Zero-denominator metrics are `null`, not zero. Token usage comes from SDK respon
 
 `JEV_*_PRICE_PER_MILLION` and `BASELINE_*_PRICE_PER_MILLION` are optional nonnegative reporting assumptions. Both input and output prices must be configured for a provider. `.env.example` includes the requested Jev assumptions of $0.042/million input tokens and zero output cost, not a promise of current pricing. Blank prices remain unconfigured. Estimates use `tokens × configured price / 1,000,000`; they do not account for cached-input discounts, tiers, credits, taxes, or future provider billing rules. Set accurate assumptions from the providers before comparing costs.
 
-Runs are sequential and alternate provider order by case. No hidden warmup calls are made. Client startup, connection reuse, schema processing/caching, network variability, differing timeouts, and early exits can affect results. Both stages are included in the latency and cost totals. Repeat runs with pinned models and compare matched cases. Inspect fallback rates and latency by outcome before concluding one router is faster. Use held-out cases to choose thresholds and a larger independently labeled dataset to test non-inferiority; 81 cases and one run do not establish general accuracy parity. This harness does not calculate statistical significance.
+Runs are sequential and alternate provider order by case. No hidden warmup calls are made. Client startup, connection reuse, schema processing/caching, network variability, OpenRouter provider selection, differing timeouts, and early exits can affect results. Both stages are included in the latency and cost totals. Repeat runs with pinned models and compare matched cases. Inspect fallback rates and latency by outcome before concluding one router is faster. Use held-out cases to choose thresholds and a larger independently labeled dataset to test non-inferiority; 86 cases and one run do not establish general accuracy parity. This harness does not calculate statistical significance.
 
 ## Confidence and typed output
 
 TypeSafe `Choice` returns the winning choice, all probabilities, and a distribution-derived confidence. **Confidence is not the same as the winning probability, nor proof of correctness.** `Noul` is the probability of yes and has no separate confidence. `Score` uses ordered rubric levels and returns a probability-weighted score, level probabilities, and confidence. Question IDs are not provided to the underlying model, so every instruction stands alone.
 
-OpenAI Structured Outputs enforce schema shape for supported models; the adapter still handles refusals, incomplete responses, and invalid judgments. The baseline's returned probabilities and confidence are **self-reported estimates**, not native class probabilities, token logprobs, or calibrated Jev equivalents. Their numerical thresholds are shared for experimental consistency, not because the scales have demonstrated equivalence. Both adapters reject missing/unoffered/duplicate labels, nonfinite or out-of-range numbers, invalid probability sums, and a selected label that is not maximal. A 0.02 sum tolerance allows provider rounding; probabilities are not silently normalized.
+OpenRouter requests strict JSON Schema output from compatible endpoints; enforcement varies by provider, so local Pydantic validation remains mandatory; the adapter still handles refusals, incomplete responses, and invalid judgments. The baseline's returned probabilities and confidence are **self-reported estimates**, not native class probabilities, token logprobs, or calibrated Jev equivalents. Their numerical thresholds are shared for experimental consistency, not because the scales have demonstrated equivalence. Both adapters reject missing/unoffered/duplicate labels, nonfinite or out-of-range numbers, invalid probability sums, and a selected label that is not maximal. A 0.02 sum tolerance allows provider rounding; probabilities are not silently normalized.
+
+The baseline wire schema requires a fixed probability object with one required numeric property for every offered option, forbids additional properties, and constrains the selected label to those options. This avoids the earlier free-form probability list, which permitted omissions and duplicate labels despite the prompt asking for all options. The adapter still validates sums, ranges, option coverage, maximal selection, and duplicate JSON keys locally. Invalid outputs are rejected, not repaired or silently normalized.
+
+Errors include a `failure_stage` (`domain` or `tool`) and a safe `fallback_reason`: `invalid_json`, `invalid_output_schema`, `missing_probability_labels`, `unknown_probability_labels`, `invalid_probability_sum`, `selected_label_missing`, `selected_label_not_maximum`, `duplicate_json_keys`, `provider_refusal`, `incomplete_response`, or `empty_response`. OpenRouter transport failures distinguish authentication, permission, rate limits, bad requests, missing endpoints, server errors, connections, and timeouts. Raw provider messages, response text, and validation input are never included in these diagnostics. Usage is recorded before validating a received completion, including rejected completions.
 
 Typed, schema-valid output can still select the wrong domain or tool, miss ambiguity, misread a request, or confidently misjudge risk. Only evaluation can measure that behavior. Deterministic rules protect known tool categories; they cannot prove that a read-only result is safe or that the user's intent was understood.
 
@@ -150,7 +212,7 @@ Structured JSON logs include request ID/hash, router/model, distributions and co
 - `LOG_FULL_REQUESTS=false` is the default. Set true **only in development with nonsensitive data**. Recent context remains omitted.
 - Programmatic callers should call `configure_logging()` before model calls and keep their own SDK/HTTP debug handlers disabled.
 
-This is not an authorization system, an injection defense, a sandbox, or an autonomous agent. Requests and context are untrusted model inputs. Passing `approved=True` is an explicit caller assertion, not an authenticated human identity or durable approval record. The catalog is trusted application code, not model-controlled data. It does not cover all sensitive reads or every consequence. Logs with hashes can still reveal repeated requests or be vulnerable to dictionary matching. OpenAI requests use `store=False`; that flag alone does not establish a provider's full retention policy. Do not send secrets to either model. No real accounts are connected by this project, but you must obtain model API credentials yourself to run paid routing.
+This is not an authorization system, an injection defense, a sandbox, or an autonomous agent. Requests and context are untrusted model inputs. Passing `approved=True` is an explicit caller assertion, not an authenticated human identity or durable approval record. The catalog is trusted application code, not model-controlled data. It does not cover all sensitive reads or every consequence. Logs with hashes can still reveal repeated requests or be vulnerable to dictionary matching. OpenRouter forwards requests to an upstream model provider; review both OpenRouter and that provider's retention policies. Do not send secrets to either model. No real accounts are connected by this project, but you must obtain model API credentials yourself to run paid routing.
 
 ## Tests and checks
 
@@ -164,7 +226,7 @@ uv build
 
 Default tests mock all external API calls, block outbound socket connections, remove provider keys from the test environment, and deselect `live` tests. Tests cover provider questions/response translation, routing gates, approval enforcement, timeout/error/missing-key behavior, catalog integrity, evaluation metrics, CLI behavior, and log privacy.
 
-Live tests require **both** explicit selection and an enable variable, plus the corresponding configured credentials (and `BASELINE_MODEL` for OpenAI):
+Live tests require **both** explicit selection and an enable variable, plus the corresponding configured credentials (and `BASELINE_MODEL` for OpenRouter):
 
 ```bash
 RUN_LIVE_TESTS=1 uv run pytest -m live
@@ -188,6 +250,7 @@ Checked September 19, 2026:
 
 - [TypeSafe introduction](https://docs.typesafe.ai/introduction), [System One HTTP API](https://docs.typesafe.ai/api), [Python SDK](https://docs.typesafe.ai/sdk/python), [async client](https://docs.typesafe.ai/sdk/python/api/clients/async), [answers and usage](https://docs.typesafe.ai/sdk/python/api/types/responses), [retry policy](https://docs.typesafe.ai/sdk/python/api/retries).
 - [Choice](https://docs.typesafe.ai/primitives/choice), [Noul](https://docs.typesafe.ai/primitives/noul), [Score](https://docs.typesafe.ai/primitives/score), [confidence](https://docs.typesafe.ai/confidence), [API-key quickstart](https://docs.typesafe.ai/introduction/quickstart).
-- [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), including Responses `responses.parse(..., text_format=PydanticModel)` and response usage `input_tokens`/`output_tokens`.
+- [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), reviewed for the original direct-OpenAI adapter. The current baseline uses OpenRouter Chat Completions instead.
+- [OpenRouter quickstart](https://openrouter.ai/docs/quickstart), [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs), and [usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting). Baseline usage maps `prompt_tokens`/`completion_tokens` to internal input/output counts before validating completion content.
 
 Details beyond the prompt's sketch: the TypeSafe endpoint is `/v1/systemone`; the async SDK supports cancellation-friendly calls and `RetryPolicy(max_retries=0)`. The installed SDK uses msgspec response objects (not Pydantic) and allows token counts to be `None`. This project validates them at its own typed boundary and tracks incomplete accounting. Jev confidence is derived from the distribution rather than the winning probability. The SDK documentation warns that request/response bodies are not redacted by its debug logger, so the CLI suppresses those logs. No `Score` API call is needed for this design.

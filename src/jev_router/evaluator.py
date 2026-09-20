@@ -25,6 +25,8 @@ class EvaluationCase(Model):
     requires_approval: bool
     expected_mutation: bool
     expected_high_consequence: bool
+    expected_tool_fit: bool | None = None
+    expected_execution_ready: bool | None = None
     notes: str = ""
 
     @model_validator(mode="after")
@@ -41,6 +43,22 @@ class EvaluationCase(Model):
             ):
                 raise ValueError("Case contradicts catalog approval policy")
         return self
+
+    @property
+    def tool_fit_expected(self) -> bool:
+        return (
+            self.expected_tool_fit
+            if self.expected_tool_fit is not None
+            else bool(self.expected_tools)
+        )
+
+    @property
+    def execution_ready_expected(self) -> bool:
+        return (
+            self.expected_execution_ready
+            if self.expected_execution_ready is not None
+            else self.expected_outcome == "route"
+        )
 
 
 class EvaluationRecord(Model):
@@ -68,6 +86,9 @@ class Metrics(Model):
     tool_case_count: int
     domain_accuracy: float | None
     exact_tool_accuracy: float | None
+    tool_fit_case_count: int
+    tool_fit_accuracy: float | None
+    execution_readiness_accuracy: float | None
     top_two_tool_accuracy: float | None
     top_two_available_case_count: int
     outcome_accuracy: float | None
@@ -116,6 +137,11 @@ def correct_route(record: EvaluationRecord) -> bool:
     )
 
 
+def correct_tool_fit(record: EvaluationRecord) -> bool:
+    c, d = record.case, record.decision
+    return d.selected_domain == c.expected_domain and d.selected_tool in c.expected_tools
+
+
 def correct_outcome(record: EvaluationRecord) -> bool:
     c, d = record.case, record.decision
     return (
@@ -159,6 +185,7 @@ def confidence_buckets(records: list[EvaluationRecord]) -> list[ConfidenceBucket
 def calculate_metrics(records: list[EvaluationRecord], settings: Settings) -> Metrics:
     n = len(records)
     tool_rows = [r for r in records if r.case.expected_outcome == "route"]
+    tool_fit_rows = [r for r in records if r.case.tool_fit_expected]
     top_two_rows = [r for r in tool_rows if r.decision.tool_probabilities]
     top_two_correct = sum(
         any(
@@ -197,6 +224,16 @@ def calculate_metrics(records: list[EvaluationRecord], settings: Settings) -> Me
             sum(r.case.expected_domain == r.decision.selected_domain for r in records), n
         ),
         exact_tool_accuracy=ratio(correct, len(tool_rows)),
+        tool_fit_case_count=len(tool_fit_rows),
+        tool_fit_accuracy=ratio(
+            sum(correct_tool_fit(r) for r in tool_fit_rows), len(tool_fit_rows)
+        ),
+        execution_readiness_accuracy=ratio(
+            sum(
+                r.case.execution_ready_expected == (r.decision.outcome == "route") for r in records
+            ),
+            n,
+        ),
         top_two_tool_accuracy=ratio(top_two_correct, len(top_two_rows)),
         top_two_available_case_count=len(top_two_rows),
         outcome_accuracy=ratio(
@@ -247,6 +284,8 @@ class CaseResult(Model):
     expected_domain: Domain
     expected_tools: list[str]
     expected_outcome: Outcome
+    expected_tool_fit: bool
+    expected_execution_ready: bool
     requires_approval: bool
     expected_mutation: bool
     expected_high_consequence: bool
@@ -260,7 +299,8 @@ class RouterReport(Model):
 
 
 class EvaluationReport(Model):
-    schema_version: int = 1
+    schema_version: int = 2
+    baseline_output_schema: str = "closed_probability_object_v2"
     created_at: str
     dataset_sha256: str
     settings: dict[str, str | float | int | None]
@@ -299,10 +339,13 @@ async def evaluate(
                 expected_domain=r.case.expected_domain,
                 expected_tools=r.case.expected_tools,
                 expected_outcome=r.case.expected_outcome,
+                expected_tool_fit=r.case.tool_fit_expected,
+                expected_execution_ready=r.case.execution_ready_expected,
                 requires_approval=r.case.requires_approval,
                 expected_mutation=r.case.expected_mutation,
                 expected_high_consequence=r.case.expected_high_consequence,
-                decision=r.decision,
+                # Prepared fields are request-derived and must not leave the process in reports.
+                decision=r.decision.model_copy(update={"tool_call": None}),
                 correct=correct_outcome(r),
             )
             for r in rows

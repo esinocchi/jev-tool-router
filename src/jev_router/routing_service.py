@@ -1,20 +1,31 @@
 """Two-stage orchestration and deterministic safety policy."""
 
 import asyncio
+from collections.abc import Mapping
 from time import perf_counter
 from typing import cast
 
+from pydantic import ValidationError
+
 from jev_router.config import Settings
+from jev_router.errors import RoutingFailure, validation_reason
 from jev_router.interfaces import JudgmentProvider
 from jev_router.models import Domain, RoutingDecision, RoutingRequest
 from jev_router.questions import DOMAIN_OPTIONS, tool_options
-from jev_router.tool_catalog import tool_requires_approval
+from jev_router.tool_catalog import CATALOG, ToolDefinition, tool_requires_approval
+from jev_router.tool_preparation import prepare_tool_call
 
 
 class HierarchicalRouter:
-    def __init__(self, provider: JudgmentProvider, settings: Settings):
+    def __init__(
+        self,
+        provider: JudgmentProvider,
+        settings: Settings,
+        catalog: Mapping[str, ToolDefinition] = CATALOG,
+    ):
         self.provider = provider
         self.settings = settings
+        self.catalog = catalog
 
     async def route(self, request: RoutingRequest) -> RoutingDecision:
         started = perf_counter()
@@ -35,10 +46,20 @@ class HierarchicalRouter:
             else:
                 async with asyncio.timeout(timeout_ms / 1000):
                     await self._stages(request, decision)
+        except RoutingFailure as error:
+            decision.outcome = "fallback"
+            decision.fallback_reason = error.reason
+            decision.failure_stage = "tool" if decision.selected_domain else "domain"
+        except ValidationError as error:
+            decision.outcome = "fallback"
+            decision.fallback_reason = validation_reason(error)
+            decision.failure_stage = "tool" if decision.selected_domain else "domain"
         except TimeoutError:
+            decision.failure_stage = "tool" if decision.selected_domain else "domain"
             decision.outcome = "fallback"
             decision.fallback_reason = "timeout"
         except Exception as error:
+            decision.failure_stage = "tool" if decision.selected_domain else "domain"
             # Never expose exception strings: providers may include requests and credentials.
             decision.outcome = "fallback"
             decision.fallback_reason = (
@@ -64,8 +85,10 @@ class HierarchicalRouter:
             judgment.likely_mutation >= s.jev_mutation_threshold
             or judgment.high_consequence >= s.jev_high_consequence_threshold
         )
-        if judgment.needs_clarification > s.jev_clarification_threshold:
+        early_clarification = judgment.needs_clarification > s.jev_clarification_threshold
+        if early_clarification and not s.diagnostic_stage_two:
             decision.outcome = "clarify"
+            decision.clarification_reason = "model_uncertainty"
             return
         if judgment.choice.confidence < s.jev_domain_confidence_threshold:
             decision.fallback_reason = "low_domain_confidence"
@@ -77,15 +100,23 @@ class HierarchicalRouter:
             decision.fallback_reason = "unsupported_domain"
             return
         tool = await self.provider.judge_tool(request, decision.selected_domain, decision.usage)
-        tool.check_options(tool_options(decision.selected_domain))
+        tool.check_options(tool_options(decision.selected_domain, self.catalog))
         decision.tool_probabilities = tool.probabilities
         decision.tool_confidence = tool.confidence
         if tool.selected != "none_of_the_above":
             decision.selected_tool = tool.selected
-            decision.requires_approval |= tool_requires_approval(tool.selected)
+            decision.requires_approval |= tool_requires_approval(tool.selected, self.catalog)
         if tool.confidence < s.jev_tool_confidence_threshold:
             decision.fallback_reason = "low_tool_confidence"
         elif tool.selected == "none_of_the_above":
             decision.fallback_reason = "no_matching_tool"
         else:
             decision.outcome = "route"
+            decision.tool_call = prepare_tool_call(decision, request, self.catalog)
+            if decision.tool_call.status == "needs_clarification":
+                decision.outcome = "clarify"
+                decision.clarification_reason = "missing_required_argument"
+        if early_clarification:
+            decision.outcome = "clarify"
+            decision.fallback_reason = None
+            decision.clarification_reason = "model_uncertainty"
