@@ -315,7 +315,12 @@ class EvaluationReport(Model):
 
 
 def load_cases(path: Path) -> list[EvaluationCase]:
-    cases = TypeAdapter(list[EvaluationCase]).validate_json(path.read_text())
+    import json
+
+    rows = json.loads(path.read_text())
+    cases = TypeAdapter(list[EvaluationCase]).validate_python(
+        [{key: value for key, value in row.items() if key != "agent"} for row in rows]
+    )
     if not cases or len({c.id for c in cases}) != len(cases):
         raise ValueError("Dataset must be nonempty and have unique IDs")
     return cases

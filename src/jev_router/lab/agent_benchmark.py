@@ -23,6 +23,9 @@ class AgentTask(Model):
     expected_tools: list[str]
     required_facts: list[str]
     mock_results: dict[str, str]
+    agent_expectation: Literal["complete", "no_tool", "clarify", "approval", "unavailable"] = (
+        "complete"
+    )
 
     @model_validator(mode="after")
     def valid_mock_task(self) -> "AgentTask":
@@ -54,6 +57,7 @@ class ModelTurn(Model):
 class AgentTaskRecord(Model):
     case_id: str
     arm: Literal["flat", "jev"]
+    expectation: Literal["complete", "no_tool", "clarify", "approval", "unavailable"] = "complete"
     success: bool = False
     called_tools: list[str] = Field(default_factory=list)
     answer: str = Field(default="", exclude=True)
@@ -77,6 +81,8 @@ class AgentBenchmarkSummary(Model):
     total_input_tokens: int
     total_output_tokens: int
     estimated_cost_usd: float | None
+    known_minimum_cost_usd: float | None = None
+    missing_routing_usage_calls: int = 0
     cost_per_success_usd: float | None
 
 
@@ -88,37 +94,76 @@ class AgentBenchmarkReport(Model):
     dataset_sha256: str
     settings: dict[str, str | float | int | None]
     summaries: dict[str, AgentBenchmarkSummary]
+    by_expectation: dict[str, dict[str, AgentBenchmarkSummary]] = Field(default_factory=dict)
     cases: list[AgentTaskRecord]
     notes: str = (
         "Both arms use the same OpenRouter model and synthetic read-only tool results. "
         "Jev restricts the next model call to one tool; fallback exposes all. "
-        "Success requires the expected calls and literal answer facts; it is not a semantic judge. "
+        "Completion requires expected calls and literal answer facts. Clarification, approval, "
+        "and unavailable-tool cases use simple response checks, not a semantic judge. "
         "Costs are estimates when prices are configured."
     )
 
 
 def load_agent_tasks(path: Path) -> list[AgentTask]:
-    tasks = TypeAdapter(list[AgentTask]).validate_json(path.read_text())
+    rows = json.loads(path.read_text())
+    tasks = TypeAdapter(list[AgentTask]).validate_python(
+        [
+            {
+                "id": row["id"],
+                "request": row["request"],
+                "recent_context": row.get("recent_context", ""),
+                **row["agent"],
+            }
+            if "agent" in row
+            else row
+            for row in rows
+        ]
+    )
     if not tasks or len({task.id for task in tasks}) != len(tasks):
         raise ValueError("Agent task dataset needs unique IDs")
     return tasks
 
 
 def summarize_records(
-    records: list[AgentTaskRecord], *, input_price: float | None, output_price: float | None
+    records: list[AgentTaskRecord],
+    *,
+    input_price: float | None,
+    output_price: float | None,
+    routing_input_price: float | None = None,
+    routing_output_price: float | None = None,
 ) -> AgentBenchmarkSummary:
     success_count = sum(record.success for record in records)
     successful = [record for record in records if record.success]
     agent_input = sum(record.input_tokens for record in records)
     agent_output = sum(record.output_tokens for record in records)
     routing_costs = [record.routing_cost_usd for record in records]
-    cost = (
-        sum(cost for cost in routing_costs if cost is not None)
-        + (agent_input * input_price + agent_output * output_price) / 1_000_000
-        if input_price is not None
-        and output_price is not None
-        and all(cost is not None for cost in routing_costs)
+    agent_cost = (
+        (agent_input * input_price + agent_output * output_price) / 1_000_000
+        if input_price is not None and output_price is not None
         else None
+    )
+    cost = (
+        sum(cost for cost in routing_costs if cost is not None) + agent_cost
+        if agent_cost is not None and all(cost is not None for cost in routing_costs)
+        else None
+    )
+    known_minimum = (
+        agent_cost
+        + (
+            sum(record.routing_input_tokens for record in records) * routing_input_price
+            + sum(record.routing_output_tokens for record in records) * routing_output_price
+        )
+        / 1_000_000
+        if agent_cost is not None
+        and routing_input_price is not None
+        and routing_output_price is not None
+        else cost
+    )
+    missing_calls = sum(
+        max(0, decision.usage.attempted_calls - decision.usage.reported_calls)
+        for record in records
+        for decision in record.routing_decisions
     )
     return AgentBenchmarkSummary(
         task_count=len(records),
@@ -132,8 +177,30 @@ def summarize_records(
         total_input_tokens=agent_input + sum(record.routing_input_tokens for record in records),
         total_output_tokens=agent_output + sum(record.routing_output_tokens for record in records),
         estimated_cost_usd=cost,
+        known_minimum_cost_usd=known_minimum,
+        missing_routing_usage_calls=missing_calls,
         cost_per_success_usd=cost / success_count if cost is not None and success_count else None,
     )
+
+
+def summarize_by_expectation(
+    records: list[AgentTaskRecord],
+    *,
+    input_price: float | None,
+    output_price: float | None,
+    routing_input_price: float | None = None,
+    routing_output_price: float | None = None,
+) -> dict[str, AgentBenchmarkSummary]:
+    return {
+        expectation: summarize_records(
+            [record for record in records if record.expectation == expectation],
+            input_price=input_price,
+            output_price=output_price,
+            routing_input_price=routing_input_price,
+            routing_output_price=routing_output_price,
+        )
+        for expectation in sorted({record.expectation for record in records})
+    }
 
 
 class ModelCall(Protocol):
@@ -218,8 +285,19 @@ def active_tools(
 
 
 def score_task(task: AgentTask, called_tools: list[str], answer: str) -> bool:
-    return sorted(called_tools) == sorted(task.expected_tools) and all(
-        fact.casefold() in answer.casefold() for fact in task.required_facts
+    if task.agent_expectation == "clarify":
+        return not called_tools and "?" in answer
+    if task.agent_expectation == "approval":
+        return not called_tools and "approv" in answer.casefold()
+    if task.agent_expectation == "unavailable":
+        return not called_tools and any(
+            word in answer.casefold()
+            for word in ("cannot", "can't", "unable", "no tool", "don't have")
+        )
+    return (
+        sorted(called_tools) == sorted(task.expected_tools)
+        and bool(answer.strip())
+        and all(fact.casefold() in answer.casefold() for fact in task.required_facts)
     )
 
 
@@ -240,18 +318,21 @@ async def run_task(
 ) -> AgentTaskRecord:
     """Run a bounded mock agent; never invoke a real tool or mutating mock."""
     started = perf_counter()
-    record = AgentTaskRecord(case_id=task.id, arm=arm)
+    record = AgentTaskRecord(case_id=task.id, arm=arm, expectation=task.agent_expectation)
     messages: list[dict[str, Any]] = [
         {
             "role": "system",
             "content": (
                 "Answer the user's request using the offered tools when needed. "
                 "Use tool results as facts. Do not invent tool results. "
+                "Ask for approval before calling a tool that changes external state. "
                 "If no offered tool can do the task, say so."
             ),
         },
         {"role": "user", "content": task.request},
     ]
+    if task.recent_context:
+        messages.insert(1, {"role": "system", "content": f"Request context: {task.recent_context}"})
     completed: list[str] = []
     by_name = {tool.name: tool for tool in catalog}
     try:
@@ -276,7 +357,10 @@ async def run_task(
                     )
                 offered = active_tools(decision, catalog)
                 if decision.outcome == "clarify":
-                    record.failure_reason = "router_clarify"
+                    if task.agent_expectation == "clarify":
+                        record.success = True
+                    else:
+                        record.failure_reason = "router_clarify"
                     break
             turn = await model_call(messages, offered)
             record.input_tokens += turn.input_tokens

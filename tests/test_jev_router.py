@@ -21,6 +21,10 @@ class JevRouter(CoreJevRouter):
         )
 
 
+def test_default_jev_route_deadline_is_three_seconds():
+    assert Settings(_env_file=None).jev_routing_timeout_ms == 3000
+
+
 def response(domain="github", confidence=0.9, tool=None, tokens=10):
     selected = domain if tool is None else tool
     options = DOMAIN_OPTIONS if tool is None else tool_options(domain, CATALOG)
@@ -67,6 +71,9 @@ async def test_real_sdk_response_parsing_and_usage():
     assert result.usage.output_tokens == 4
     assert result.usage.complete
     assert result.usage.response_models == ["jev-test-version", "jev-test-version"]
+    assert [call.stage for call in result.usage.call_timings] == ["domain", "tool"]
+    assert [call.status for call in result.usage.call_timings] == ["response", "response"]
+    assert all(call.latency_ms >= 0 for call in result.usage.call_timings)
     assert (
         client.system_one.call_args_list[0].kwargs["state"]
         == client.system_one.call_args_list[1].kwargs["state"]
@@ -101,6 +108,8 @@ async def test_deadline_and_partial_usage():
     assert result.usage.input_tokens == 10
     assert not result.usage.complete
     assert result.estimated_cost_usd is None
+    assert [call.stage for call in result.usage.call_timings] == ["domain", "tool"]
+    assert [call.status for call in result.usage.call_timings] == ["response", "cancelled"]
 
 
 async def test_missing_key(monkeypatch):

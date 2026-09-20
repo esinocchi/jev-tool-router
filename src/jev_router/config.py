@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     jev_clarification_threshold: Probability = 0.75
     jev_mutation_threshold: Probability = 0.60
     jev_high_consequence_threshold: Probability = 0.50
-    jev_routing_timeout_ms: int = Field(default=1500, gt=0)
+    jev_routing_timeout_ms: int = Field(default=3000, gt=0)
     baseline_routing_timeout_ms: int = Field(default=30000, gt=0)
     log_full_requests: bool = False
     diagnostic_stage_two: bool = False

@@ -1,9 +1,11 @@
 # Contributing
 
 Start with the [case study](docs/case-study.md) and [experiment guide](experiments/README.md)
-if you are investigating the benchmark claims. The two experiments answer different
+if you are investigating the benchmark claims. The two published experiments answer different
 questions: the 86-case run measures standalone routing; the ten-task run measures a Luna
-agent after Jev filters its tools. Please keep that distinction in issues and pull requests.
+agent after Jev filters its tools. New runs default to one shared 100-prompt dataset, while
+still measuring routing and agent behavior separately. Please keep those distinctions in issues
+and pull requests.
 
 Useful research contributions include independently labeled, realistic requests; cases
 where similar tools compete; a larger catalog; multi-tool tasks; and runs against

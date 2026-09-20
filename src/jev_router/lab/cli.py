@@ -20,6 +20,7 @@ from jev_router.lab.agent_benchmark import (
     OpenRouterAgent,
     load_agent_tasks,
     run_task,
+    summarize_by_expectation,
     summarize_records,
 )
 from jev_router.lab.baseline_router import BaselineRouter
@@ -198,7 +199,7 @@ def compare(
 @app.command(name="eval")
 def evaluate_command(
     dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
-        "experiments/routing_cases.json"
+        "experiments/shared_cases.json"
     ),
     output_dir: Annotated[Path, typer.Option()] = Path("experiments/results"),
     routers: Annotated[
@@ -260,8 +261,8 @@ def agent_benchmark_command(
     live: Annotated[
         bool, typer.Option(help="Explicitly enable paid Jev and OpenRouter calls")
     ] = False,
-    dataset: Annotated[Path, typer.Option()] = Path("experiments/agent_tasks.json"),
-    limit: Annotated[int, typer.Option(min=1, help="Number of paired tasks to run")] = 10,
+    dataset: Annotated[Path, typer.Option()] = Path("experiments/shared_cases.json"),
+    limit: Annotated[int, typer.Option(min=1, help="Number of paired tasks to run")] = 100,
     output_dir: Annotated[Path, typer.Option()] = Path("experiments/results"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -318,6 +319,8 @@ def agent_benchmark_command(
                 [record for record in records if record.arm == arm],
                 input_price=settings.baseline_input_price_per_million,
                 output_price=settings.baseline_output_price_per_million,
+                routing_input_price=settings.jev_input_price_per_million,
+                routing_output_price=settings.jev_output_price_per_million,
             )
             for arm in ("flat", "jev")
         }
@@ -327,6 +330,16 @@ def agent_benchmark_command(
             dataset_sha256=hashlib.sha256(dataset.read_bytes()).hexdigest(),
             settings=settings.report_config(),
             summaries=summaries,
+            by_expectation={
+                arm: summarize_by_expectation(
+                    [record for record in records if record.arm == arm],
+                    input_price=settings.baseline_input_price_per_million,
+                    output_price=settings.baseline_output_price_per_million,
+                    routing_input_price=settings.jev_input_price_per_million,
+                    routing_output_price=settings.jev_output_price_per_million,
+                )
+                for arm in ("flat", "jev")
+            },
             cases=records,
         )
 
@@ -358,6 +371,19 @@ def agent_benchmark_command(
                 f"estimated cost {summary.estimated_cost_usd} USD; "
                 f"cost per completion {summary.cost_per_success_usd} USD"
             )
+            if summary.missing_routing_usage_calls:
+                typer.echo(
+                    f"  known minimum cost {summary.known_minimum_cost_usd} USD; "
+                    f"{summary.missing_routing_usage_calls} routing calls lack usage"
+                )
+            for expectation, group in report.by_expectation[arm].items():
+                latency = (
+                    f"{group.mean_latency_ms:.0f}" if group.mean_latency_ms is not None else "n/a"
+                )
+                typer.echo(
+                    f"  {expectation}: {group.success_count}/{group.task_count}; "
+                    f"mean latency {latency} ms; estimated cost {group.estimated_cost_usd} USD"
+                )
 
 
 if __name__ == "__main__":

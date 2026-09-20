@@ -1,37 +1,54 @@
 # Can a specialist model choose an agent's tools?
 
-*Two Jev experiments · September 20, 2026*
+*Two Jev experiments · the same 100 prompts · three paired runs each · September 20, 2026*
 
-I built [Jev Tool Router](../README.md) to answer two questions. **Can Jev make the routing decision faster and more cheaply than a general LLM?** And **does adding Jev before an agent's tool call improve the agent?** The first gives Jev the routing job. The second uses the prefilter pattern available through tool APIs today. They are different tests.
+I built [Jev Tool Router](../README.md) to ask two questions: **Can Jev choose a suitable tool faster and more cheaply than a general LLM router?** And **does filtering an agent's tools through Jev improve the full task?** Both tests use the [same 100 synthetic prompts](../experiments/shared_cases.json): 47 read tasks, 21 approval cases, 13 ambiguous requests, ten no-tool questions, and nine requests unsupported by the 16-tool catalog. Each test measures a different part of the workflow.
+
+The main results below are medians of **three fresh runs** under the same 3,000 ms Jev routing timeout. Ranges show the smallest and largest run values. All six [published reports](../experiments/published/) have the same dataset hash, 100 cases per arm, and complete token usage. The costs are estimates from configured token prices, not invoices.
 
 ## Test 1: Jev makes the routing decision
 
-I gave 86 [hand-authored requests](../experiments/routing_cases.json) to Jev and to an `openai/gpt-5.6-luna` router through OpenRouter. Each chose a domain and tool in two stages. **No agent made a later tool call.**
+Jev and an `openai/gpt-5.6-luna` router each made a domain and tool decision for all 100 prompts. No agent call followed. Tool fit is scored on the 81 cases with an acceptable tool label, including cases that should ultimately ask for clarification.
 
 <picture>
-  <source media="(max-width: 640px)" srcset="assets/routing-benchmark-mobile.svg">
-  <img src="assets/routing-benchmark.svg" alt="Routing-only comparison: similar tool fit, with Jev faster and cheaper under configured prices">
+  <source media="(max-width: 640px)" srcset="assets/routing-benchmark-100-mobile.svg">
+  <img src="assets/routing-benchmark-100.svg" alt="Across three 100-prompt runs, median tool fit was 76 of 81 for Jev and 77 of 81 for Luna. Jev's median routing latency was 0.419 seconds versus 2.459 seconds; estimated cost was $0.00486 versus $0.03673.">
 </picture>
 
-In the [published run](../experiments/published/routing-2026-09-20.json), Jev picked a suitable domain and tool in **64/68** tool-fit cases, versus Luna's **65/68**. Mean routing latency was **508 ms versus 2,579 ms**; estimated total cost was **$0.00365 versus $0.02920**. On all 55 cases labeled ready to route, both picked an acceptable tool. Jev then returned `clarify` on 24 and `fallback` on one, leaving **30/55** ready-to-use routes versus Luna's **35/55**. Choosing the right candidate and deciding to proceed are separate judgments.
+| Routing metric | Jev median (range) | Luna median (range) |
+| --- | ---: | ---: |
+| Tool fit, 81 labeled cases | 76/81 (76–76) | 77/81 (76–77) |
+| Mean routing latency per run | 419 ms (405–426) | 2,459 ms (2,383–2,539) |
+| Estimated cost per 100 prompts | $0.00486 ($0.00484–$0.00486) | $0.03673 ($0.03658–$0.03685) |
+| Ready-to-use correct routes | 41 (41–41) | 46 (45–46) |
 
-So, in this test, Jev performed the **standalone routing job** about five times faster and at roughly one-eighth the estimated cost, with similar tool fit. That is the promising result. It is not a claim that a full agent became faster.
+The [three routing reports](../experiments/published/routing-shared-100-3000ms-run1-2026-09-20.json) ([run 2](../experiments/published/routing-shared-100-3000ms-run2-2026-09-20.json), [run 3](../experiments/published/routing-shared-100-3000ms-run3-2026-09-20.json)) show Jev consistently faster and cheaper for the standalone routing decision. Its tool fit was one case lower in two runs and tied in one. A suitable tool and a ready-to-use route are distinct judgments; Jev returned fewer ready-to-use correct routes.
 
 ## Test 2: Jev filters tools before Luna
 
-I then tested the pattern an application can use today. In a [paired mock-agent benchmark](../experiments/README.md#agent-task-benchmark), one Luna agent saw all 16 tools. The other received Jev's filtered list before Luna made its own tool-call decision. Both arms saw the same ten synthetic requests and inert tool results; no real service was called.
+The flat arm offered Luna all 16 mock tools. The Jev arm called Jev before Luna and offered the selected tool; a routing fallback restored all tools. Both arms saw identical prompts and inert mock results. No external tool ran.
 
 <picture>
-  <source media="(max-width: 640px)" srcset="assets/agent-benchmark-mobile.svg">
-  <img src="assets/agent-benchmark.svg" alt="Agent comparison: both arms complete ten tasks, with Jev filtering slower and slightly cheaper">
+  <source media="(max-width: 640px)" srcset="assets/agent-benchmark-100-mobile.svg">
+  <img src="assets/agent-benchmark-100.svg" alt="Across three 100-prompt runs, median read-task success was 37 of 47 with Jev filtering and 35 of 47 with all tools. Median read-task latency was 3.737 versus 3.011 seconds, while estimated total cost was $0.02096 versus $0.02847.">
 </picture>
 
-Both arms completed **10/10** tasks. Jev filtering raised mean task latency from **2.575 to 3.071 seconds** while reducing estimated cost from **$0.002979 to $0.002786**. The two-tool task succeeded only when Jev fell back to the full catalog. This small test did **not** show an agent speed benefit from an extra external routing call with 16 tools. See the [run report](../experiments/published/agent-bench-2026-09-20.json).
+| Agent metric | Jev filter median (range) | All tools median (range) |
+| --- | ---: | ---: |
+| Successful outcomes, all 100 | 62 (60–63) | 55 (54–56) |
+| Read-task success, 47 cases | 37 (36–37) | 35 (35–38) |
+| Mean read-task latency per run | 3.737 s (3.565–4.001) | 3.011 s (2.842–3.204) |
+| Mean latency, all 100 | 2.488 s (2.381–2.629) | 2.340 s (2.191–2.481) |
+| Estimated cost per 100 prompts | $0.02096 ($0.02081–$0.02114) | $0.02847 ($0.02841–$0.02934) |
+
+All [three agent reports](../experiments/published/agent-bench-shared-100-3000ms-run1-2026-09-20.json) ([run 2](../experiments/published/agent-bench-shared-100-3000ms-run2-2026-09-20.json), [run 3](../experiments/published/agent-bench-shared-100-3000ms-run3-2026-09-20.json)) have complete usage. Jev filtering cost less in every run, by about **26% at the medians**. It was slower in every run on the 47 read tasks and on the overall 100-prompt mean. “Read-task latency” averages all read-task attempts, including failures; it is not a completed-task-only average.
+
+The overall mean blends unlike requests. Jev quickly asked for clarification in **12/13** cases in every run, versus **6–7/13** with all tools. Approval success remained **2–4/21** with Jev and **2–3/21** with all tools; unavailable-tool success was **0–1/9** and **0/9**. These are simple observable checks, not a semantic judge. The median read-task success favors Jev, but the flat arm scored higher in one run (38 versus 37), so the success difference is not consistent across all three.
 
 ## What I take from this
 
-The 86-case result suggests that **specialist routing could be valuable closer to a provider's tool-selection path**. In the ten-task test, Luna still made its own tool decision after Jev, so some work was duplicated. An application can already choose or constrain the [tools sent to a model](https://openrouter.ai/docs/guides/features/tool-calling), but this repo cannot replace the provider model's internal automatic selection. OpenAI exposes [native tool search](https://developers.openai.com/api/docs/guides/tools-tool-search); its public docs do not establish whether a Jev-like specialist powers it. Provider adoption remains a hypothesis, not a finding.
+For this small catalog, Jev made the standalone routing decision much faster and at lower estimated cost, with similar tool fit. In the practical agent setup, Jev filtering reduced estimated API cost but increased measured task latency. The experiment supports a **cost tradeoff**, not a speed improvement for the full task. The low approval and unsupported-request scores limit any broad reliability claim.
 
-The limits matter: these were one-off, synthetic runs with four tools per domain, no real tool execution, and prices configured for estimates rather than taken from invoices. Jev's and Luna's confidence measures are not calibrated against each other. Ten tasks do not establish accuracy parity, and neither run proves statistical significance. The next useful test is a larger catalog with realistic, held-out agent tasks, a multi-tool shortlist, and a comparison against native tool search.
+These are synthetic, non-held-out prompts with four tools per domain, inert mock results, and literal answer-fact checks. Three repetitions describe run-to-run variability; they do not establish statistical significance or generalize to production workloads. Neither test measures provider-native tool search or real integrations. A stronger follow-up would use independently labeled held-out tasks, a larger catalog, real or representative tool results, and a supported native tool-search baseline.
 
-The [experiment guide](../experiments/README.md) has the datasets, reports, configuration, and commands for new runs. The current routing harness differs from the dated run, so it cannot replay that report exactly. The published reports omit complete requests and model answers; the datasets contain the synthetic requests and labels.
+The [experiment guide](../experiments/README.md) defines the metrics and rerun commands. Earlier [1.5-second routing](../experiments/published/routing-shared-100-2026-09-20.json) and [agent](../experiments/published/agent-bench-shared-100-run1-2026-09-20.json) ([second run](../experiments/published/agent-bench-shared-100-run2-2026-09-20.json)) reports remain archived. Those agent runs had one timeout with unreported usage each, so their Jev costs were only lower bounds. The still older [86-case routing](../experiments/published/routing-2026-09-20.json) and [ten-task agent](../experiments/published/agent-bench-2026-09-20.json) reports used different datasets. None of those historical results are mixed into the tables above.

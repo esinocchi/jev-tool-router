@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="624" height="613" viewBox="0 0 624 613" role="img" aria-labelledby="title description">
+  <title id="title">Jev filters before Luna</title>
+  <desc id="description">Jev filters before Luna. 100 shared prompts · median of 3 runs. Read-task success · 47 cases: 37/47 versus 35/47. Mean read-task latency · 47 cases: 3.737 s versus 3.011 s. Mean latency · all 100 prompts: 2.488 s versus 2.340 s. Estimated cost · all 100 prompts: $0.02096 versus $0.02847. Medians of 3 runs · complete usage | Costs use configured prices</desc>
+  <rect x="0.5" y="0.5" width="623" height="612" rx="4" fill="#fbfaf8" stroke="#dedbd6"/>
+  <text x="28" y="39" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="11">EXPERIMENT 02 / AGENT LOOP</text>
+  <text x="28" y="73" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="20" font-weight="600">Jev filters before Luna</text>
+  <text x="28" y="98" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="13">100 shared prompts · median of 3 runs</text>
+  <line x1="28" y1="119.5" x2="596" y2="119.5" stroke="#dedbd6"/>
+  <text x="28" y="149" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="11">READ-TASK SUCCESS · 47 CASES</text>
+  <text x="28" y="177" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="14">Jev filter</text>
+  <text x="596" y="177" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">37/47</text>
+  <rect x="126" y="166" width="300" height="10" fill="#1a1a1a"/>
+  <text x="28" y="206" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="14">All tools</text>
+  <text x="596" y="206" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">35/47</text>
+  <rect x="126" y="195" width="284" height="10" fill="#a8a5a0"/>
+  <line x1="28" y1="226.5" x2="596" y2="226.5" stroke="#dedbd6"/>
+  <text x="28" y="256" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="11">MEAN READ-TASK LATENCY · 47 CASES</text>
+  <text x="28" y="284" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="14">Jev filter</text>
+  <text x="596" y="284" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">3.737 s</text>
+  <rect x="126" y="273" width="300" height="10" fill="#1a1a1a"/>
+  <text x="28" y="313" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="14">All tools</text>
+  <text x="596" y="313" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">3.011 s</text>
+  <rect x="126" y="302" width="242" height="10" fill="#a8a5a0"/>
+  <line x1="28" y1="333.5" x2="596" y2="333.5" stroke="#dedbd6"/>
+  <text x="28" y="363" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="11">MEAN LATENCY · ALL 100 PROMPTS</text>
+  <text x="28" y="391" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="14">Jev filter</text>
+  <text x="596" y="391" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">2.488 s</text>
+  <rect x="126" y="380" width="300" height="10" fill="#1a1a1a"/>
+  <text x="28" y="420" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="14">All tools</text>
+  <text x="596" y="420" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">2.340 s</text>
+  <rect x="126" y="409" width="282" height="10" fill="#a8a5a0"/>
+  <line x1="28" y1="440.5" x2="596" y2="440.5" stroke="#dedbd6"/>
+  <text x="28" y="470" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="11">ESTIMATED COST · ALL 100 PROMPTS</text>
+  <text x="28" y="498" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="14">Jev filter</text>
+  <text x="596" y="498" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">$0.02096</text>
+  <rect x="126" y="487" width="221" height="10" fill="#1a1a1a"/>
+  <text x="28" y="527" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="14">All tools</text>
+  <text x="596" y="527" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="13" text-anchor="end">$0.02847</text>
+  <rect x="126" y="516" width="300" height="10" fill="#a8a5a0"/>
+  <line x1="28" y1="547.5" x2="596" y2="547.5" stroke="#dedbd6"/>
+  <text x="28" y="573" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="11">Medians of 3 runs · complete usage</text>
+  <text x="28" y="589" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="11">Costs use configured prices</text>
+</svg>

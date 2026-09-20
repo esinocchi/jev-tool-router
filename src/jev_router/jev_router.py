@@ -1,6 +1,9 @@
 """TypeSafe-specific translation; no security decisions are delegated to the SDK."""
 
+import asyncio
 from collections.abc import Callable, Mapping, Sequence
+from time import perf_counter
+from typing import Literal
 
 from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, RetryPolicy, SystemOneResponse
 
@@ -8,6 +11,7 @@ from jev_router.config import Settings
 from jev_router.models import (
     ChoiceJudgment,
     DomainJudgment,
+    ProviderCallTiming,
     RoutingDecision,
     RoutingRequest,
     TokenUsage,
@@ -73,18 +77,41 @@ class JevProvider:
         return self.client
 
     async def _call(
-        self, request: RoutingRequest, questions: dict[str, Choice | Noul], usage: TokenUsage
+        self,
+        request: RoutingRequest,
+        questions: dict[str, Choice | Noul],
+        usage: TokenUsage,
+        stage: Literal["domain", "tool"],
     ) -> SystemOneResponse:
         client = self.get_client()
         usage.start_call()
-        response = await client.system_one(
-            state=request.state(), questions=questions, model=self.model
-        )
-        usage.record(response.usage.input_tokens, response.usage.output_tokens, response.model)
-        return response
+        started = perf_counter()
+        status: Literal["response", "cancelled", "timeout", "error"] = "response"
+        try:
+            response = await client.system_one(
+                state=request.state(), questions=questions, model=self.model
+            )
+            usage.record(response.usage.input_tokens, response.usage.output_tokens, response.model)
+            return response
+        except BaseException as error:
+            if isinstance(error, asyncio.CancelledError):
+                status = "cancelled"
+            elif isinstance(error, TimeoutError) or "timeout" in type(error).__name__.lower():
+                status = "timeout"
+            else:
+                status = "error"
+            raise
+        finally:
+            usage.call_timings.append(
+                ProviderCallTiming(
+                    stage=stage,
+                    latency_ms=(perf_counter() - started) * 1000,
+                    status=status,
+                )
+            )
 
     async def judge_domain(self, request: RoutingRequest, usage: TokenUsage) -> DomainJudgment:
-        response = await self._call(request, domain_questions(self.catalog), usage)
+        response = await self._call(request, domain_questions(self.catalog), usage, "domain")
         answer = response.choices["tool_domain"]
         return DomainJudgment(
             choice=ChoiceJudgment(
@@ -101,7 +128,7 @@ class JevProvider:
         self, request: RoutingRequest, domain: str, usage: TokenUsage
     ) -> ChoiceJudgment:
         questions: dict[str, Choice | Noul] = dict(tool_questions(domain, self.catalog))
-        response = await self._call(request, questions, usage)
+        response = await self._call(request, questions, usage, "tool")
         answer = response.choices["tool"]
         return ChoiceJudgment(
             selected=answer.choice, probabilities=answer.probabilities, confidence=answer.confidence

@@ -63,6 +63,12 @@ class DomainJudgment(Model):
     high_consequence: Probability
 
 
+class ProviderCallTiming(Model):
+    stage: Literal["domain", "tool"]
+    latency_ms: float = Field(ge=0)
+    status: Literal["response", "cancelled", "timeout", "error"]
+
+
 class TokenUsage(Model):
     input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
@@ -70,6 +76,7 @@ class TokenUsage(Model):
     attempted_calls: int = 0
     reported_calls: int = 0
     response_models: list[str] = Field(default_factory=list)
+    call_timings: list[ProviderCallTiming] = Field(default_factory=list)
 
     def start_call(self) -> None:
         self.attempted_calls += 1

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="312" height="468" viewBox="0 0 312 468" role="img" aria-labelledby="title description">
+  <title id="title">Jev and Luna choose the tool</title>
+  <desc id="description">Jev and Luna choose the tool. 100 shared prompts · median of 3 runs. Tool fit · 81 labeled cases: 76/81 · 93.8% versus 77/81 · 95.1%. Mean routing latency: 0.419 s versus 2.459 s. Estimated API cost · 100 prompts: $0.00486 versus $0.03673. Medians of 3 runs · configured prices | Tool fit is not task completion</desc>
+  <rect x="0.5" y="0.5" width="311" height="467" rx="4" fill="#fbfaf8" stroke="#dedbd6"/>
+  <text x="18" y="30" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="10">EXPERIMENT 01 / ROUTER ONLY</text>
+  <text x="18" y="57" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="17" font-weight="600">Jev and Luna choose the tool</text>
+  <text x="18" y="78" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="11">100 shared prompts · median of 3 runs</text>
+  <line x1="18" y1="94.5" x2="294" y2="94.5" stroke="#dedbd6"/>
+  <text x="18" y="117" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="10">TOOL FIT · 81 LABELED CASES</text>
+  <text x="18" y="142" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="12">Jev</text>
+  <text x="165" y="142" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="12">Luna</text>
+  <text x="18" y="161" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">76/81 · 93.8%</text>
+  <text x="165" y="161" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">77/81 · 95.1%</text>
+  <rect x="18" y="174" width="123" height="7" fill="#1a1a1a"/>
+  <rect x="165" y="174" width="125" height="7" fill="#a8a5a0"/>
+  <line x1="18" y1="197.5" x2="294" y2="197.5" stroke="#dedbd6"/>
+  <text x="18" y="220" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="10">MEAN ROUTING LATENCY</text>
+  <text x="18" y="245" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="12">Jev</text>
+  <text x="165" y="245" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="12">Luna</text>
+  <text x="18" y="264" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">0.419 s</text>
+  <text x="165" y="264" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">2.459 s</text>
+  <rect x="18" y="277" width="21" height="7" fill="#1a1a1a"/>
+  <rect x="165" y="277" width="125" height="7" fill="#a8a5a0"/>
+  <line x1="18" y1="300.5" x2="294" y2="300.5" stroke="#dedbd6"/>
+  <text x="18" y="323" fill="#625f5a" font-family="Geist Mono, ui-monospace, monospace" font-size="10">ESTIMATED API COST · 100 PROMPTS</text>
+  <text x="18" y="348" fill="#1a1a1a" font-family="Geist, system-ui, sans-serif" font-size="12">Jev</text>
+  <text x="165" y="348" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="12">Luna</text>
+  <text x="18" y="367" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">$0.00486</text>
+  <text x="165" y="367" fill="#1a1a1a" font-family="Geist Mono, ui-monospace, monospace" font-size="12">$0.03673</text>
+  <rect x="18" y="380" width="17" height="7" fill="#1a1a1a"/>
+  <rect x="165" y="380" width="125" height="7" fill="#a8a5a0"/>
+  <line x1="18" y1="403.5" x2="294" y2="403.5" stroke="#dedbd6"/>
+  <text x="18" y="426" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="10">Medians of 3 runs · configured prices</text>
+  <text x="18" y="442" fill="#625f5a" font-family="Geist, system-ui, sans-serif" font-size="10">Tool fit is not task completion</text>
+</svg>
